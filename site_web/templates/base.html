@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', path='css/base.css') }}">
+
+    <!-- LOGO -->
+    <link rel="shortcut icon" href="{{ url_for('static', path='img/logo.png') }}" type="image/x-icon">
+
+    <title>LocBalais - Location de balais professionnels</title>
+</head>
+<body>
+    <header>
+        <div class="header-container">
+            <div class="logo">
+                <h1><span>Loc</span>Balais</h1>
+                <p>Location de balais professionnels</p>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="#">Accueil</a></li>
+                    <li><a href="#">Catalogue</a></li>
+                    <li><a href="#">Tarifs</a></li>
+                    <li><a href="#">Contact</a></li>
+                    <li><a href="#" class="btn-connexion">Connexion</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    {% block content %}
+    {% endblock %}
+
+    <footer>
+        <div class="footer-container">
+            <div class="footer-col">
+                <h3>LocBalais</h3>
+                <p>Location de balais professionnels pour particuliers et entreprises depuis 2010.</p>
+            </div>
+            <div class="footer-col">
+                <h3>Liens utiles</h3>
+                <ul>
+                    <li><a href="#">Conditions générales</a></li>
+                    <li><a href="#">Politique de confidentialité</a></li>
+                    <li><a href="#">Mentions légales</a></li>
+                    <li><a href="#">FAQ</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h3>Contact</h3>
+                <ul>
+                    <li>📍 <a href="https://maps.app.goo.gl/XMjgnq6LDkC1Zz1b8" target="_blank">Schaapstraat 1, 2580 Putte</a></li>
+                    <li>📞 <a href="tel:+32123456789">01 23 45 67 89</a></li>
+                    <li>✉️ <a href="mailto:contact@locbalais.be">contact@locbalais.be</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h3>Horaires</h3>
+                <ul>
+                    <li>Lun-Ven : 9h-12h, 14h-18h</li>
+                    <li>Sam : 9h-12h</li>
+                    <li>Dim : Fermé</li>
+                </ul>
+            </div>
+        </div>
+        <div class="copyright">
+            &copy; 2024 LocBalais - Tous droits réservés
+        </div>
+    </footer>
+
+    
+</body>
+</html>
