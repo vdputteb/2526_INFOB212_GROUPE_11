@@ -5,37 +5,46 @@
 <!-- CSS -->
 <link rel="stylesheet" href="{{ url_for('static', path='css/shop.css') }}">
 <!-- JS-->
-<script src="{{ url_for('static', path='js/catalogue.js') }}" defer></script>
+<script type = "module" src="{{ url_for('static', path='js/shop/shop_main.js') }}"></script>
 
 <section class="banner">
     <h2>Louez ou achetez le balai qu'il vous faut</h2>
-    <p>Du balai traditionnel au balai mécanique, trouvez l'outil idéal pour vos besoins professionnels ou domestiques</p>
+    <p>Du balai traditionnel au balai magique, trouvez l'outil idéal pour vos besoins professionnels ou domestiques</p>
     <div class="search-bar">
-        <input type="text" placeholder="Rechercher un balai (ex: balai mécanique, franges...)" id="searchInput">
+        <input type="text" placeholder="Rechercher un balai (ex: balai mécanique, volant...)" id="searchInput">
         <button onclick="searchBrooms()">Rechercher</button>
     </div>
 </section>
 
 <section class="filters">
     <div class="filter-group">
-        <label for="type">Type :</label>
-        <select id="type" onchange="filterBrooms()">
-            <option value="all">Tous les types</option>
-            <option value="traditionnel">Traditionnel</option>
-            <option value="mecanique">Mécanique</option>
-            <option value="industrie">Industriel</option>
-            <option value="exterieur">Extérieur</option>
+        <label for="category">Catégorie :</label>
+        <select id="category" onchange="filterBrooms()">
+            <option value="all">Toutes les catégories</option>
+            <option value="non_magique">Non-magique</option>
+            <option value="magique">Magique ✨</option>
         </select>
     </div>
 
     <div class="filter-group">
-        <label for="prix">Prix /jour :</label>
+        <label for="prix">Prix location /jour :</label>
         <select id="prix" onchange="filterBrooms()">
             <option value="all">Tous les prix</option>
             <option value="0-5">Moins de 5€</option>
             <option value="5-10">5€ - 10€</option>
             <option value="10-20">10€ - 20€</option>
             <option value="20+">Plus de 20€</option>
+        </select>
+    </div>
+
+    <div class="filter-group">
+        <label for="prixVente">Prix vente :</label>
+        <select id="prixVente" onchange="filterBrooms()">
+            <option value="all">Tous les prix</option>
+            <option value="0-30">Moins de 30€</option>
+            <option value="30-60">30€ - 60€</option>
+            <option value="60-100">60€ - 100€</option>
+            <option value="100+">Plus de 100€</option>
         </select>
     </div>
 
@@ -59,8 +68,10 @@
         <div class="result-count">Trier par :
             <select onchange="sortBrooms(this.value)">
                 <option value="recommandes">Recommandés</option>
-                <option value="prix-croissant">Prix croissant</option>
-                <option value="prix-decroissant">Prix décroissant</option>
+                <option value="prix-croissant">Prix location croissant</option>
+                <option value="prix-decroissant">Prix location décroissant</option>
+                <option value="prix-vente-croissant">Prix vente croissant</option>
+                <option value="prix-vente-decroissant">Prix vente décroissant</option>
                 <option value="nom">Nom</option>
             </select>
         </div>
@@ -71,13 +82,7 @@
     </div>
 
     <div class="pagination">
-        <a href="#">&laquo;</a>
-        <a href="#" class="active">1</a>
-        <a href="#">2</a>
-        <a href="#">3</a>
-        <a href="#">4</a>
-        <a href="#">5</a>
-        <a href="#">&raquo;</a>
+        <!-- La pagination sera générée par JavaScript -->
     </div>
 </main>
 

@@ -374,3 +374,127 @@
     font-weight: bold;
     cursor: pointer;
 }
+
+/* État du balai */
+.etat-container {
+    margin-bottom: 15px;
+}
+
+.etat-label {
+    font-size: 12px;
+    margin-bottom: 5px;
+    color: #555;
+}
+
+.etat-bar {
+    width: 100%;
+    height: 8px;
+    background-color: #ecf0f1;
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 5px 0;
+}
+
+.etat-fill {
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.utilisation-text {
+    font-size: 11px;
+    color: #7f8c8d;
+}
+
+/* Attributs magiques */
+.magic-attributes {
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-radius: 5px;
+    margin: 10px 0;
+    border-left: 3px solid #9b59b6;
+}
+
+.magic-attributes div {
+    margin-bottom: 5px;
+    font-size: 13px;
+}
+
+.magic-level {
+    color: #9b59b6;
+}
+
+.magic-speed {
+    color: #3498db;
+}
+
+.magic-permis {
+    color: #e74c3c;
+}
+
+.magic-composants {
+    color: #27ae60;
+    font-size: 12px;
+    margin-top: 5px;
+    padding-top: 5px;
+    border-top: 1px solid #dee2e6;
+}
+
+/* Prix container amélioré */
+.price-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 15px 0;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.price-rent {
+    font-size: 20px;
+    font-weight: bold;
+    color: #f39c12;
+}
+
+.price-buy {
+    font-size: 20px;
+    font-weight: bold;
+    color: #27ae60;
+}
+
+.price-period {
+    font-size: 14px;
+    font-weight: normal;
+    color: #7f8c8d;
+}
+
+.price-label {
+    font-size: 12px;
+    font-weight: normal;
+    color: #7f8c8d;
+    display: block;
+}
+
+/* Message si aucun résultat */
+.no-results {
+    text-align: center;
+    padding: 50px;
+    background: white;
+    border-radius: 8px;
+    grid-column: 1 / -1;
+}
+
+.no-results p {
+    color: #7f8c8d;
+    font-size: 18px;
+    margin-bottom: 15px;
+}
+
+.no-results button {
+    padding: 12px 25px;
+    background-color: #f39c12;
+    border: none;
+    border-radius: 5px;
+    color: #2c3e50;
+    font-weight: bold;
+    cursor: pointer;
+}
