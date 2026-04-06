@@ -1,0 +1,236 @@
+/* rental-modal.css - Modal de location */
+
+.rental-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.rental-modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(3px);
+}
+
+.rental-modal-content {
+    position: relative;
+    background: white;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+    from {
+        transform: translateY(-30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.rental-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid #e9ecef;
+    background: linear-gradient(135deg, #2c3e50, #34495e);
+    border-radius: 16px 16px 0 0;
+}
+
+.rental-modal-header h3 {
+    color: white;
+    font-size: 20px;
+    margin: 0;
+}
+
+.rental-modal-close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    color: white;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+    padding: 0;
+    line-height: 1;
+}
+
+.rental-modal-close:hover {
+    opacity: 1;
+}
+
+.rental-modal-body {
+    padding: 24px;
+}
+
+.rental-price-info {
+    text-align: center;
+    padding: 15px;
+    background: #fef9e7;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.rental-price-info .price {
+    font-size: 32px;
+    font-weight: bold;
+    color: #f39c12;
+}
+
+.rental-price-info .period {
+    font-size: 16px;
+    color: #7f8c8d;
+}
+
+.rental-form-group {
+    margin-bottom: 20px;
+}
+
+.rental-form-group label {
+    display: block;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 8px;
+    font-size: 14px;
+}
+
+.rental-form-group input {
+    width: 100%;
+    padding: 12px 15px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    font-size: 16px;
+    transition: border-color 0.2s;
+}
+
+.rental-form-group input:focus {
+    outline: none;
+    border-color: #f39c12;
+}
+
+.rental-days-display,
+.rental-total-display {
+    padding: 12px 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    font-size: 18px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.rental-availability {
+    margin: 20px 0;
+    padding: 12px;
+    border-radius: 8px;
+}
+
+.availability-checking {
+    color: #3498db;
+    text-align: center;
+}
+
+.availability-success {
+    color: #27ae60;
+    background: #d4edda;
+    padding: 10px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.availability-error {
+    color: #e74c3c;
+    background: #f8d7da;
+    padding: 10px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.rental-modal-footer {
+    display: flex;
+    gap: 12px;
+    padding: 20px 24px;
+    border-top: 1px solid #e9ecef;
+    background: #f8f9fa;
+    border-radius: 0 0 16px 16px;
+}
+
+.rental-modal-footer button {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-cancel {
+    background: #e9ecef;
+    color: #7f8c8d;
+}
+
+.btn-cancel:hover {
+    background: #dee2e6;
+}
+
+.btn-confirm {
+    background: #f39c12;
+    color: #2c3e50;
+}
+
+.btn-confirm:hover:not(:disabled) {
+    background: #e67e22;
+    color: white;
+}
+
+.btn-confirm:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    .rental-modal-content {
+        width: 95%;
+    }
+    
+    .rental-modal-header h3 {
+        font-size: 16px;
+    }
+    
+    .rental-modal-body {
+        padding: 16px;
+    }
+    
+    .rental-price-info .price {
+        font-size: 24px;
+    }
+}
+
+/* Style pour les dates de location dans le panier */
+.rental-dates {
+    font-size: 11px;
+    color: #f39c12;
+    margin-top: 4px;
+    font-weight: 500;
+}

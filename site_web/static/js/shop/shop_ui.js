@@ -127,7 +127,11 @@ export function createBroomCard(broom) {
     rentBtn.textContent = 'Louer ce balai';
     if (broom.nb_utilisation >= 500) rentBtn.disabled = true;
     rentBtn.addEventListener('click', () => {
-        showNotification(`📍 Demande de location pour : ${broom.libelle} - ${broom.prix_location.toFixed(2)}€/jour`, "info");
+        if (typeof window.showRentalModal === 'function') {
+            window.showRentalModal(broom);
+        } else {
+            showNotification("Service de location temporairement indisponible", "error");
+        }
     });
     actionsDiv.appendChild(rentBtn);
     
@@ -136,7 +140,22 @@ export function createBroomCard(broom) {
     buyBtn.textContent = 'Acheter ce balai';
     if (broom.nb_utilisation >= 500) buyBtn.disabled = true;
     buyBtn.addEventListener('click', () => {
-        showNotification(`🛒 Demande d'achat pour : ${broom.libelle} - ${broom.prix_vente.toFixed(2)}€`, "success");
+        const buyItem = {
+            id: broom.id,
+            name: broom.libelle,
+            type: 'buy',
+            price: broom.prix_vente,
+            quantity: 1,
+            category: broom.categorie === 'magique' ? 'Balai magique ✨' : 'Balai traditionnel',
+            icon: broom.categorie === 'magique' ? '✨🧹' : '🧹'
+        };
+        
+        if (window.BasketManager) {
+            window.BasketManager.addToBasket(buyItem);
+            showNotification(`🛒 "${broom.libelle}" ajouté au panier (achat)`, "success");
+        } else {
+            showNotification(`Demande d'achat pour : ${broom.libelle} - ${broom.prix_vente.toFixed(2)}€`, "success");
+        }
     });
     actionsDiv.appendChild(buyBtn);
     
@@ -145,7 +164,7 @@ export function createBroomCard(broom) {
     return card;
 }
 
-export function displayBrooms(broomsToShow, currentPage = 1, itemsPerPage = 6, onPageChange) {
+export function displayBrooms(broomsToShow, currentPage = 1, itemsPerPage = 6) {
     const grid = document.getElementById('broomGrid');
     const resultCount = document.getElementById('resultCount');
 
@@ -160,7 +179,7 @@ export function displayBrooms(broomsToShow, currentPage = 1, itemsPerPage = 6, o
     if (broomsToShow.length === 0) {
         const noResultsDiv = document.createElement('div');
         noResultsDiv.className = 'no-results';
-        noResultsDiv.innerHTML = '<p>😕 Aucun balai ne correspond à vos critères</p>';
+        noResultsDiv.innerHTML = '<p>😕 Aucun balai ne correspond à vos critères</p><button onclick="resetFilters()">Réinitialiser les filtres</button>';
         grid.appendChild(noResultsDiv);
         return;
     }

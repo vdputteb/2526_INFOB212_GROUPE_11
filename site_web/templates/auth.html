@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<!-- CSS -->
+<link rel="stylesheet" href="{{ url_for('static', path='css/auth.css') }}">
+<!-- JS-->
+<script type="module" src="{{ url_for('static', path='js/auth/auth_main.js') }}"></script>
+
+<section class="auth-section">
+    <div class="auth-container">
+        <div class="auth-tabs">
+            <button class="tab-btn active" data-tab="login">Connexion</button>
+            <button class="tab-btn" data-tab="register">Inscription</button>
+        </div>
+
+        <!-- Formulaire de connexion -->
+        <div id="loginTab" class="auth-form active">
+            <h2>Connexion</h2>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="loginEmail">Email</label>
+                    <input type="email" id="loginEmail" name="email" required placeholder="exemple@email.com">
+                </div>
+                <div class="form-group">
+                    <label for="loginPassword">Mot de passe</label>
+                    <input type="password" id="loginPassword" name="password" required placeholder="••••••••">
+                </div>
+                <div class="form-options">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="rememberMe"> Se souvenir de moi
+                    </label>
+                    <a href="#" class="forgot-password">Mot de passe oublié ?</a>
+                </div>
+                <button type="submit" class="btn-auth">Se connecter</button>
+            </form>
+        </div>
+
+        <!-- Formulaire d'inscription -->
+        <div id="registerTab" class="auth-form">
+            <h2>Inscription</h2>
+            <form id="registerForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="registerFirstname">Prénom</label>
+                        <input type="text" id="registerFirstname" name="firstname" required placeholder="Jean">
+                    </div>
+                    <div class="form-group">
+                        <label for="registerLastname">Nom</label>
+                        <input type="text" id="registerLastname" name="lastname" required placeholder="Dupont">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="registerEmail">Email</label>
+                    <input type="email" id="registerEmail" name="email" required placeholder="exemple@email.com">
+                </div>
+                <div class="form-group">
+                    <label for="registerPhone">Téléphone (optionnel)</label>
+                    <input type="tel" id="registerPhone" name="phone" placeholder="01 23 45 67 89">
+                </div>
+                <div class="form-group">
+                    <label for="registerPassword">Mot de passe</label>
+                    <input type="password" id="registerPassword" name="password" required placeholder="••••••••">
+                    <small class="password-hint">Minimum 8 caractères, 1 majuscule et 1 chiffre</small>
+                </div>
+                <div class="form-group">
+                    <label for="registerConfirmPassword">Confirmer le mot de passe</label>
+                    <input type="password" id="registerConfirmPassword" name="confirm_password" required placeholder="••••••••">
+                </div>
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="acceptCgu" required> J'accepte les 
+                        <a href="#" target="_blank">conditions générales</a> et la 
+                        <a href="#" target="_blank">politique de confidentialité</a>
+                    </label>
+                </div>
+                <button type="submit" class="btn-auth">S'inscrire</button>
+            </form>
+        </div>
+    </div>
+</section>
+
+<!-- Modal de confirmation -->
+<div id="authModal" class="auth-modal">
+    <div class="auth-modal-content">
+        <span class="auth-modal-close">&times;</span>
+        <div class="auth-modal-icon" id="modalIcon">✓</div>
+        <h3 id="modalTitle">Bienvenue !</h3>
+        <p id="modalMessage">Votre compte a été créé avec succès</p>
+        <button class="btn-modal-ok" id="modalOkBtn">Continuer</button>
+    </div>
+</div>
+
+{% endblock %}

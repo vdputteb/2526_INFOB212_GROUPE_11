@@ -2,12 +2,16 @@ import { fetchBroomsFromAPI, getCurrentBrooms, getHasMagicalBrooms, setCurrentBr
 import { displayBrooms } from './shop_ui.js';
 import { filterBrooms, sortBrooms, searchBrooms, resetFilters, updatePagination } from './shop_event.js';
 import { showNotification } from './shop_utils.js';
+import { loadReservations, showRentalModal } from './shop_rental.js';
 
 let currentPage = 1;
 const itemsPerPage = 6;
 
 // Initialisation
 document.addEventListener('DOMContentLoaded', async () => {
+    // Charger les réservations
+    await loadReservations();
+    
     // Attacher les événements
     document.getElementById('category')?.addEventListener('change', filterBrooms);
     document.getElementById('prix')?.addEventListener('change', filterBrooms);
@@ -26,7 +30,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     updatePagination(initialBrooms.length);
     
     // Rafraîchir depuis l'API
-    addRefreshButton();
     await fetchBroomsFromAPI();
     
     // Mettre à jour l'affichage après chargement API
@@ -35,6 +38,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     updatePagination(updatedBrooms.length);
     updateCategorySelector();
 });
+
+// Exposer la fonction showRentalModal globalement
+window.showRentalModal = showRentalModal;
 
 function updateCategorySelector() {
     const categorySelect = document.getElementById('category');
@@ -49,39 +55,10 @@ function updateCategorySelector() {
     }
 }
 
-function addRefreshButton() {
-    const filtersContainer = document.querySelector('.filters');
-    
-    if (filtersContainer && !document.getElementById('refreshBtn')) {
-        const refreshButton = document.createElement('button');
-        refreshButton.id = 'refreshBtn';
-        refreshButton.textContent = '🔄 Rafraîchir les données';
-        refreshButton.style.marginLeft = '10px';
-        refreshButton.style.padding = '8px 12px';
-        refreshButton.style.backgroundColor = '#4CAF50';
-        refreshButton.style.color = 'white';
-        refreshButton.style.border = 'none';
-        refreshButton.style.borderRadius = '5px';
-        refreshButton.style.cursor = 'pointer';
-        refreshButton.onclick = async () => {
-            refreshButton.disabled = true;
-            refreshButton.textContent = '🔄 Chargement...';
-            await fetchBroomsFromAPI();
-            const refreshedBrooms = getCurrentBrooms();
-            displayBrooms(refreshedBrooms, currentPage, itemsPerPage);
-            updatePagination(refreshedBrooms.length);
-            updateCategorySelector();
-            refreshButton.disabled = false;
-            refreshButton.textContent = '🔄 Rafraîchir les données';
-        };
-        
-        filtersContainer.appendChild(refreshButton);
-    }
-}
-
 // Reconnexion automatique toutes les 5 minutes
 setInterval(async () => {
     await fetchBroomsFromAPI();
+    await loadReservations();
     const refreshedBrooms = getCurrentBrooms();
     displayBrooms(refreshedBrooms, currentPage, itemsPerPage);
     updatePagination(refreshedBrooms.length);

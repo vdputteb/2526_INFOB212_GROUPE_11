@@ -91,24 +91,28 @@ let masterBrooms = [...fallbackBrooms];
 let currentBrooms = [...fallbackBrooms];
 let hasMagicalBrooms = true;
 
+/**
+ * Récupère tous les balais (magiques et non-magiques) depuis l'API
+ * Endpoint unique: /shop/balai
+ */
 export async function fetchBroomsFromAPI() {
     try {
-        console.log("Tentative de récupération des balais depuis l'API...");
+        console.log("Tentative de récupération de tous les balais depuis l'API...");
         
-        const response = await fetch('/shop/balai_moldu/');
+        // Endpoint unique pour tous les balais
+        const response = await fetch('/shop/balai');
         
         if (!response.ok) {
             throw new Error(`Erreur HTTP ${response.status}: ${response.statusText}`);
         }
         
         const data = await response.json();
-        
         if (data && Array.isArray(data)) {
-            console.log("Données récupérées avec succès depuis l'API");
+            console.log(`✅ ${data.length} balais récupérés avec succès depuis l'API (magiques + non-magiques)`);
             masterBrooms = [...data];
             hasMagicalBrooms = data.some(broom => broom.categorie === "magique");
             currentBrooms = [...data];
-            showNotification("Données mises à jour depuis le serveur", "success");
+            showNotification(`${data.length} balais chargés depuis le serveur`, "success");
             return data;
         } else {
             throw new Error("Format de données invalide reçu de l'API");
