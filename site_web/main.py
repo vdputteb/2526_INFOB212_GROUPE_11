@@ -1,24 +1,24 @@
+# main.py
 import bcrypt
 import uvicorn
-from fastapi import FastAPI, HTTPException, Request, Cookie
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from datetime import datetime
-from BD.model import Reservation
 
+from BD import (
+    init_database, ClientRepository, BroomRepository,
+    ReservationRepository, CommandeRepository, UserRepository
+)
+from BD.model import Reservation
 
 app = FastAPI()
 
-# Modèles de données
+# Initialisation de la base de données simulée
+init_database()
 
-
-# Stockage temporaire des réservations (en mémoire)
-reservations_db = []
-reservation_counter = 1
-
-# Autoriser les requêtes depuis le front-end
+# Middleware CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -26,255 +26,199 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Middleware d'authentification ----
+# Middleware d'authentification
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
-    # Routes publiques
-    public_routes = ["/" ,"/auth", "/static", "/shop", "/shop/balai", "/basket", "/api/reservations", "/api/reservations/check"]
+    public_routes = ["/", "/auth", "/static", "/api/auth/login", "/api/auth/logout"]
     
-    if request.url.path in public_routes or request.url.path.startswith("/static") or request.url.path.startswith("/api"):
+    if request.url.path in public_routes or request.url.path.startswith("/static"):
         return await call_next(request)
     
-    # Vérification du cookie
-    session_user = request.cookies.get("session_user")
-    
-    if not session_user:
+    session_vendeur = request.cookies.get("session_vendeur")
+    if not session_vendeur:
         if request.url.path.startswith("/api"):
-            return JSONResponse(
-                {"detail": "Non connecté"}, 
-                status_code=401
-            )
-        return RedirectResponse("/shop")
+            return JSONResponse({"detail": "Non connecté"}, status_code=401)
+        return RedirectResponse("/auth")
     
-    # Stockage de l'utilisateur dans l'état de la requête
-    request.state.user = session_user
-    
-    try:
-        response = await call_next(request)
-    except Exception as e:
-        raise e
+    request.state.vendeur = session_vendeur
+    return await call_next(request)
 
-    return response
-
-
-# --- Templates ----
+# Templates et fichiers statiques
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-@app.on_event("startup")
-def on_startup():
-    print("Start")
-    # Données de démonstration pour les réservations
-    global reservations_db, reservation_counter
-    reservations_db = []
-    reservation_counter = 1
-
+# --- Routes pages ---
 @app.get("/")
-async def homer(request: Request):
-    return RedirectResponse("/shop")
+async def home(request: Request):
+    return RedirectResponse("/auth")
 
-# Redirect to the Authentification template
 @app.get("/auth")
-async def auth(request: Request):
+async def auth_page(request: Request):
     return templates.TemplateResponse(request=request, name="auth.html")
 
-# Redirect to the Shop template
-@app.get("/shop")
-async def shop(request: Request):
-    return templates.TemplateResponse(request=request, name="shop.html")
+@app.get("/vendeur/dashboard")
+async def vendeur_dashboard(request: Request):
+    return templates.TemplateResponse(request=request, name="vendeur_dashboard.html")
 
-# Redirect to the Basket template
-@app.get("/basket")
-async def basket(request: Request):
-    return templates.TemplateResponse(request=request, name="basket.html")
+@app.get("/client/shop")
+async def client_shop(request: Request, client_id: str = None):
+    client_id_cookie = request.cookies.get("selected_client")
+    client_id = client_id or client_id_cookie
+    
+    client = None
+    if client_id:
+        client = ClientRepository.get_by_id(int(client_id))
+    
+    return templates.TemplateResponse(
+        request=request,
+        name="client_shop.html",
+        context={"client": client}
+    )
 
-# Redirect to the Location template
-@app.get("/location")
-async def location(request: Request):
-    return templates.TemplateResponse(request=request, name="location.html")
+@app.get("/client/basket")
+async def client_basket(request: Request):
+    client_id = request.cookies.get("selected_client")
+    client = None
+    if client_id:
+        client = ClientRepository.get_by_id(int(client_id))
+    return templates.TemplateResponse(
+        request=request, 
+        name="client_basket.html",
+        context={"client": client}
+    )
+
+# --- API Authentification ---
+@app.post("/api/auth/login")
+async def login(request: Request):
+    try:
+        body = await request.json()
+        username = body.get("username")
+        password = body.get("password")
+        
+        user = UserRepository.authenticate(username, password, bcrypt)
+        
+        if not user:
+            return JSONResponse({"success": False, "error": "Identifiants invalides"}, status_code=401)
+        
+        if user["role"] != "vendeur":
+            return JSONResponse({"success": False, "error": "Accès réservé aux vendeurs"}, status_code=403)
+        
+        response = JSONResponse({"success": True, "redirect": "/vendeur/dashboard"})
+        response.set_cookie(key="session_vendeur", value=username, httponly=True, max_age=3600*8)
+        return response
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+@app.post("/api/auth/logout")
+async def logout():
+    response = JSONResponse({"success": True})
+    response.delete_cookie("session_vendeur")
+    response.delete_cookie("selected_client")
+    return response
+
+# --- API Clients ---
+@app.get("/api/clients")
+async def get_clients():
+    return JSONResponse(ClientRepository.get_all())
+
+@app.get("/api/clients/{client_id}")
+async def get_client(client_id: int):
+    client = ClientRepository.get_by_id(client_id)
+    if not client:
+        raise HTTPException(status_code=404, detail="Client non trouvé")
+    return JSONResponse(client)
+
+@app.post("/api/clients/select")
+async def select_client(request: Request):
+    body = await request.json()
+    client_id = body.get("client_id")
+    client = ClientRepository.get_by_id(int(client_id))
+    if not client:
+        raise HTTPException(status_code=404, detail="Client non trouvé")
+    
+    response = JSONResponse({"success": True, "client": client})
+    response.set_cookie(key="selected_client", value=str(client_id), httponly=True, max_age=3600*8)
+    return response
+
+@app.post("/api/clients")
+async def create_client(request: Request):
+    body = await request.json()
+    new_client = ClientRepository.create(body)
+    return JSONResponse(new_client, status_code=201)
+
+# --- API Catalogue ---
+@app.get("/api/catalogue")
+async def get_catalogue():
+    return JSONResponse(BroomRepository.get_all())
+
+@app.get("/api/catalogue/{broom_id}")
+async def get_broom(broom_id: int):
+    broom = BroomRepository.get_by_id(broom_id)
+    if not broom:
+        raise HTTPException(status_code=404, detail="Balai non trouvé")
+    return JSONResponse(broom)
 
 # --- API Réservations ---
-
 @app.get("/api/reservations")
 async def get_reservations():
-    """Récupère toutes les réservations"""
-    return JSONResponse(reservations_db)
+    return JSONResponse(ReservationRepository.get_all())
+
+@app.get("/api/reservations/client/{client_id}")
+async def get_reservations_by_client(client_id: int):
+    return JSONResponse(ReservationRepository.get_by_client(client_id))
 
 @app.get("/api/reservations/check")
 async def check_availability(broomId: int, startDate: str, endDate: str):
-    """Vérifie si un balai est disponible sur une période"""
     try:
-        start = datetime.strptime(startDate, "%Y-%m-%d")
-        end = datetime.strptime(endDate, "%Y-%m-%d")
+        available, conflict = ReservationRepository.check_availability(broomId, startDate, endDate)
         
-        if end < start:
+        if available:
+            return JSONResponse({"available": True, "message": "Balai disponible"})
+        else:
             return JSONResponse({
                 "available": False,
-                "message": "La date de fin doit être postérieure à la date de début"
+                "message": "Balai déjà réservé sur cette période",
+                "conflictStart": conflict["startDate"],
+                "conflictEnd": conflict["endDate"]
             })
-        
-        # Vérifier les conflits
-        for res in reservations_db:
-            if res["broomId"] == broomId:
-                res_start = datetime.strptime(res["startDate"], "%Y-%m-%d")
-                res_end = datetime.strptime(res["endDate"], "%Y-%m-%d")
-                
-                # Vérifier le chevauchement
-                if not (end < res_start or start > res_end):
-                    return JSONResponse({
-                        "available": False,
-                        "message": "Balai déjà réservé sur cette période",
-                        "conflictStart": res["startDate"],
-                        "conflictEnd": res["endDate"]
-                    })
-        
-        return JSONResponse({
-            "available": True,
-            "message": "Balai disponible"
-        })
     except Exception as e:
-        return JSONResponse({
-            "available": False,
-            "message": f"Erreur: {str(e)}"
-        }, status_code=400)
+        return JSONResponse({"available": False, "message": f"Erreur: {str(e)}"}, status_code=400)
 
 @app.post("/api/reservations")
 async def create_reservation(reservation: Reservation):
-    """Crée une nouvelle réservation"""
-    global reservation_counter
+    available, _ = ReservationRepository.check_availability(
+        reservation.broomId, reservation.startDate, reservation.endDate
+    )
     
-    # Vérifier la disponibilité
-    start = datetime.strptime(reservation.startDate, "%Y-%m-%d")
-    end = datetime.strptime(reservation.endDate, "%Y-%m-%d")
+    if not available:
+        raise HTTPException(status_code=409, detail="Balai déjà réservé sur cette période")
     
-    for res in reservations_db:
-        if res["broomId"] == reservation.broomId:
-            res_start = datetime.strptime(res["startDate"], "%Y-%m-%d")
-            res_end = datetime.strptime(res["endDate"], "%Y-%m-%d")
-            
-            if not (end < res_start or start > res_end):
-                raise HTTPException(status_code=409, detail="Balai déjà réservé sur cette période")
-    
-    new_reservation = {
-        "id": reservation_counter,
-        "broomId": reservation.broomId,
-        "startDate": reservation.startDate,
-        "endDate": reservation.endDate,
-        "userId": reservation.userId,
-        "createdAt": datetime.now().isoformat()
-    }
-    
-    reservations_db.append(new_reservation)
-    reservation_counter += 1
-    
+    new_reservation = ReservationRepository.create(reservation)
     return JSONResponse(new_reservation, status_code=201)
 
 @app.delete("/api/reservations/{reservation_id}")
 async def delete_reservation(reservation_id: int):
-    """Supprime une réservation"""
-    global reservations_db
-    for i, res in enumerate(reservations_db):
-        if res["id"] == reservation_id:
-            reservations_db.pop(i)
-            return JSONResponse({"message": "Réservation annulée"})
-    
-    raise HTTPException(status_code=404, detail="Réservation non trouvée")
+    deleted = ReservationRepository.delete(reservation_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Réservation non trouvée")
+    return JSONResponse({"message": "Réservation annulée"})
 
-# --- API Balais ---
+# --- API Commandes ---
+@app.post("/api/commandes")
+async def create_commande(request: Request):
+    body = await request.json()
+    nouvelle_commande = CommandeRepository.create(body)
+    return JSONResponse(nouvelle_commande, status_code=201)
 
-@app.get("/shop/balai")
-async def get_balai():
-    # Données de démonstration
-    balais = [
-        {
-            "id": 1,
-            "libelle": "Balai traditionnel en paille",
-            "description": "Balai classique en paille de riz, idéal pour un usage domestique quotidien.",
-            "categorie": "non_magique",
-            "prix_location": 3.50,
-            "prix_vente": 15.00,
-            "nb_utilisation": 100,
-            "etat": "neuf",
-            "img": "🧹",
-            "inStock": True
-        },
-        {
-            "id": 2,
-            "libelle": "Balai mécanique à franges",
-            "description": "Balai mécanique avec franges en microfibre, parfait pour les sols lisses.",
-            "categorie": "non_magique",
-            "prix_location": 7.90,
-            "prix_vente": 25.00,
-            "nb_utilisation": 75,
-            "etat": "bon",
-            "img": "🧹🧹",
-            "inStock": True
-        },
-        {
-            "id": 3,
-            "libelle": "Balai Volant Éclairs",
-            "description": "Balai magique ultra-rapide avec éclairs lumineux",
-            "categorie": "magique",
-            "prix_location": 50.00,
-            "prix_vente": 350.00,
-            "nb_utilisation": 500,
-            "etat": "neuf",
-            "img": "⚡🧹",
-            "niveau_magique": 5,
-            "vitesse": 150,
-            "permis_magique_requis": 4,
-            "composants_magiques": ["Ecaille de dragon", "Queue de licorne", "Poudre d'étoile"],
-            "inStock": True
-        },
-        {
-            "id": 4,
-            "libelle": "Balai des Brumes",
-            "description": "Balai capable de créer un brouillard protecteur",
-            "categorie": "magique",
-            "prix_location": 35.00,
-            "prix_vente": 280.00,
-            "nb_utilisation": 300,
-            "etat": "use",
-            "img": "🌫️🧹",
-            "niveau_magique": 3,
-            "vitesse": 90,
-            "permis_magique_requis": 2,
-            "composants_magiques": ["Feuille d'Yggdrasil", "Bave de limace magique"],
-            "inStock": True
-        },
-        {
-            "id": 5,
-            "libelle": "Balai à gazon extérieur",
-            "description": "Balai robuste pour feuilles et débris sur pelouse ou terrasse.",
-            "categorie": "non_magique",
-            "prix_location": 8.50,
-            "prix_vente": 28.00,
-            "nb_utilisation": 50,
-            "etat": "use",
-            "img": "🌿🧹",
-            "inStock": True
-        },
-        {
-            "id": 6,
-            "libelle": "Balai Phénix",
-            "description": "Balai légendaire du Phénix, résiste au feu",
-            "categorie": "magique",
-            "prix_location": 75.00,
-            "prix_vente": 600.00,
-            "nb_utilisation": 1000,
-            "etat": "neuf",
-            "img": "🔥🧹",
-            "niveau_magique": 5,
-            "vitesse": 200,
-            "permis_magique_requis": 5,
-            "composants_magiques": ["Plume de Phénix", "Cendre volcanique", "Sang de dragon"],
-            "inStock": True
-        }
-    ]
-    
-    return JSONResponse(balais)
+@app.get("/api/commandes/client/{client_id}")
+async def get_commandes_client(client_id: int):
+    return JSONResponse(CommandeRepository.get_by_client(client_id))
 
-# Lancement automatique du serveur au lancement du python
+@app.get("/api/commandes")
+async def get_all_commandes():
+    return JSONResponse(CommandeRepository.get_all())
+
+# --- Lancement ---
 if __name__ == "__main__":
     uvicorn.run(
         "main:app",

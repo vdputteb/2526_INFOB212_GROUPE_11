@@ -10,24 +10,24 @@
     <!-- LOGO -->
     <link rel="shortcut icon" href="{{ url_for('static', path='img/logo.svg') }}" type="image/x-icon">
 
-    <title>LocBalais - Location de balais professionnels</title>
+    <title>LocBalais - Gestion des locations et ventes</title>
 </head>
 <body>
     <header>
         <div class="header-container">
             <div class="logo">
                 <h1><span>Loc</span>Balais</h1>
-                <p>Location de balais professionnels</p>
+                <p>Gestion des locations et ventes</p>
             </div>
             <nav>
                 <ul>
-                    <li><a href="/shop">Accueil</a></li>
-                    <li><a href="#">Panier</a></li>
-                    <li><a href="#">Contact</a></li>
-                    <li><a href="/auth" class="btn-connexion">Connexion</a></li>
+                    <!-- Navigation gérée dynamiquement par JavaScript -->
+                    <li><a href="/auth">Connexion vendeur</a></li>
                 </ul>
             </nav>
         </div>
+        
+        <!-- Le contexte client sera injecté dynamiquement par JS -->
     </header>
 
     {% block content %}
@@ -37,27 +37,26 @@
         <div class="footer-container">
             <div class="footer-col">
                 <h3>LocBalais</h3>
-                <p>Location de balais professionnels pour particuliers et entreprises depuis 2010.</p>
+                <p>Solution de gestion des locations et ventes de balais professionnels.</p>
+                <p style="font-size: 12px; margin-top: 10px;">Espace réservé aux vendeurs</p>
             </div>
             <div class="footer-col">
-                <h3>Liens utiles</h3>
+                <h3>Navigation rapide</h3>
                 <ul>
-                    <li><a href="#">Conditions générales</a></li>
-                    <li><a href="#">Politique de confidentialité</a></li>
-                    <li><a href="#">Mentions légales</a></li>
-                    <li><a href="#">FAQ</a></li>
+                    <li><a href="/vendeur/dashboard">Tableau de bord</a></li>
+                    <li><a href="/client/shop">Catalogue client</a></li>
+                    <li><a href="/client/basket">Panier client</a></li>
                 </ul>
             </div>
             <div class="footer-col">
-                <h3>Contact</h3>
+                <h3>Contact support</h3>
                 <ul>
-                    <li>📍 <a href="https://maps.app.goo.gl/XMjgnq6LDkC1Zz1b8" target="_blank">Schaapstraat 1, 2580 Putte</a></li>
-                    <li>📞 <a href="tel:+32123456789">01 23 45 67 89</a></li>
-                    <li>✉️ <a href="mailto:contact@locbalais.be">contact@locbalais.be</a></li>
+                    <li>📞 <a href="tel:+33123456789">01 23 45 67 89</a></li>
+                    <li>✉️ <a href="mailto:support@locbalais.fr">support@locbalais.fr</a></li>
                 </ul>
             </div>
             <div class="footer-col">
-                <h3>Horaires</h3>
+                <h3>Horaires support</h3>
                 <ul>
                     <li>Lun-Ven : 9h-12h, 14h-18h</li>
                     <li>Sam : 9h-12h</li>
@@ -66,10 +65,10 @@
             </div>
         </div>
         <div class="copyright">
-            &copy; 2024 LocBalais - Tous droits réservés
+            &copy; 2024 LocBalais - Solution de gestion professionnelle
         </div>
     </footer>
 
-    
+    <script src="{{ url_for('static', path='js/base/base_main.js') }}"></script>
 </body>
 </html>

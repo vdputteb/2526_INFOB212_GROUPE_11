@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<link rel="stylesheet" href="{{ url_for('static', path='css/shop.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', path='css/rental-modal.css') }}">
+<script type="module" src="{{ url_for('static', path='js/client/client_shop.js') }}"></script>
+
+<input type="hidden" id="clientId" value="{{ client.id if client else '' }}">
+<input type="hidden" id="clientNom" value="{{ client.nom if client else '' }}">
+<input type="hidden" id="clientPrenom" value="{{ client.prenom if client else '' }}">
+<input type="hidden" id="clientEmail" value="{{ client.email if client else '' }}">
+<input type="hidden" id="clientAdresse" value="{{ client.adresse if client else '' }}">
+
+<section class="banner">
+    <h2>Louez ou achetez le balai qu'il vous faut</h2>
+    <p>Client : <strong>{{ client.prenom }} {{ client.nom }}</strong> ({{ client.email }})</p>
+    <div class="search-bar">
+        <input type="text" placeholder="Rechercher un balai..." id="searchInput">
+        <button onclick="window.searchBrooms?.()">Rechercher</button>
+    </div>
+</section>
+
+<section class="filters">
+    <div class="filter-group">
+        <label>Catégorie :</label>
+        <select id="category">
+            <option value="all">Toutes</option>
+            <option value="non_magique">Non-magique</option>
+            <option value="magique">Magique ✨</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Prix location :</label>
+        <select id="prix">
+            <option value="all">Tous</option>
+            <option value="0-5">Moins de 5€</option>
+            <option value="5-10">5€ - 10€</option>
+            <option value="10-20">10€ - 20€</option>
+            <option value="20+">Plus de 20€</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <label>Prix vente :</label>
+        <select id="prixVente">
+            <option value="all">Tous</option>
+            <option value="0-30">Moins de 30€</option>
+            <option value="30-60">30€ - 60€</option>
+            <option value="60-100">60€ - 100€</option>
+            <option value="100+">Plus de 100€</option>
+        </select>
+    </div>
+    <div class="filter-group">
+        <span>🔍 <span id="resultCount">0</span> balais</span>
+    </div>
+</section>
+
+<main class="catalogue">
+    <div class="section-title">
+        <h2>Notre sélection de balais</h2>
+        <div class="result-count">
+            Trier :
+            <select id="sortSelect">
+                <option value="recommandes">Recommandés</option>
+                <option value="prix-croissant">Prix location ↑</option>
+                <option value="prix-decroissant">Prix location ↓</option>
+                <option value="prix-vente-croissant">Prix vente ↑</option>
+                <option value="prix-vente-decroissant">Prix vente ↓</option>
+                <option value="nom">Nom</option>
+            </select>
+        </div>
+    </div>
+    <div class="broom-grid" id="broomGrid"></div>
+    <div class="pagination" id="pagination"></div>
+</main>
+
+<div class="cart-fixed">
+    <a href="/client/basket" class="cart-link">
+        🛒 Panier <span id="cartCount">0</span>
+    </a>
+</div>
+
+{% endblock %}
