@@ -1,0 +1,56 @@
+# scripts/create_admin_mysql.py
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+import bcrypt
+import getpass
+from BD.database_mysql import get_connection
+
+def create_admin_user(pseudo: str, email: str, password: str):
+    """Crée un utilisateur admin dans la base de données MySQL"""
+    connection = get_connection()
+    cursor = connection.cursor()
+    
+    try:
+        # Vérifier si l'utilisateur existe déjà
+        cursor.execute("SELECT pseudo FROM players WHERE pseudo = %s", (pseudo,))
+        if cursor.fetchone():
+            print(f"❌ L'utilisateur {pseudo} existe déjà")
+            return False
+        
+        # Hasher le mot de passe
+        hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+        
+        # Créer l'admin
+        cursor.execute("""
+            INSERT INTO players (pseudo, mail, mot_de_passe, game_style, role)
+            VALUES (%s, %s, %s, %s, %s)
+        """, (pseudo, email, hashed_pw.decode('utf-8'), 'cookie', 'admin'))
+        
+        connection.commit()
+        print(f"✅ Admin '{pseudo}' créé avec succès!")
+        print(f"   Email: {email}")
+        print(f"   Rôle: admin")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Erreur lors de la création: {e}")
+        connection.rollback()
+        return False
+    finally:
+        cursor.close()
+        connection.close()
+
+if __name__ == "__main__":
+    print("=== Création d'un compte administrateur ===")
+    pseudo = input("Pseudo admin: ")
+    email = input("Email: ")
+    password = getpass.getpass("Mot de passe: ")
+    confirm = getpass.getpass("Confirmer le mot de passe: ")
+    
+    if password != confirm:
+        print("❌ Les mots de passe ne correspondent pas")
+        sys.exit(1)
+    
+    create_admin_user(pseudo, email, password)
