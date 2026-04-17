@@ -26,13 +26,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target === modal) closeModal();
     });
 
-    // Déconnexion forcée lors de l'arrivée sur la page
-    if (sessionStorage.getItem("userID"))
-        sessionStorage.removeItem("userID")
-        window.location.href = "/logout"
-
-
-
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const username = document.getElementById('loginusername').value;
@@ -49,10 +42,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await response.json();
 
             if (data.success) {
+                
+                sessionStorage.setItem("username", data.username)
+                sessionStorage.setItem("role", data.role)
+
                 showModal('Login successful', 'Redirecting to the dashboard...');
-                sessionStorage.setItem("userID",username)
+
                 setTimeout(() => {
-                    window.location.href = data.redirect;
+                    window.location.href = "/dashboard";
                 }, 1500);
             } else {
                 showModal('Erreur', data.error || 'Identifiants invalides', true);

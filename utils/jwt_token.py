@@ -5,9 +5,9 @@ from jose import JWTError, jwt
 
 
 # Configuration
-SECRET_KEY = getenv("SECRET_KEY")
-ALGORITHM = getenv("ALGORITHM")
-ACCESS_TOKEN_EXPIRE_MINUTES = getenv("ACCESS_TOKEN_EXPIRE_MINUTES")
+SECRET_KEY = getenv("SECRET_KEY") or 'test'
+ALGORITHM = getenv("ALGORITHM") or "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = getenv("ACCESS_TOKEN_EXPIRE_MINUTES") or 30
 
 def create_access_token(data: dict):
     """Crée un token JWT"""
@@ -19,7 +19,9 @@ def create_access_token(data: dict):
     return encoded_jwt
 
 def verify_token(token: str) -> Optional[dict]:
-    """Vérifie et décode le token JWT"""
+    """Vérifie et décode le token JWT
+        Pourra recup le username et le password du token pour se connecter a la bdd 
+    """
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload

@@ -5,52 +5,103 @@
 <link rel="stylesheet" href="{{ url_for('static', path='css/dashboard.css') }}">
 <script type="module" src="{{ url_for('static', path='js/dashboard/dashboard_main.js') }}"></script>
 
+
+
+
 <section class="vendeur-section">
     <div class="vendeur-container">
         <div class="vendeur-header">
             <h1>Tableau de bord <span id="vendeur_name">Vendeur</span></h1>
             <button id="logoutBtn" class="btn-logout">Se déconnecter</button>
         </div>
+        <div class="vue">
+            <!-- vue admin-->
+            <div id="admin-vue" style="display: none;">
+                <div class="content">
+                    <!-- Panneau gauche : Sélection Vendeur -->
+                    <div class="panel">
+                        <h2>Sélectionner un Vendeur</h2>
+                        
+                        <div class="search">
+                            <input type="text" id="vendeurSearch" placeholder="Rechercher un vendeur...">
+                        </div>
+                        
+                        <div class="list" id="vendeurList">
+                            <!-- Liste des vendeurs chargée dynamiquement -->
+                        </div>
+                        
+                        <div class="add">
+                            <button id="showAddvendeurBtn" class="btn-add-vendeur">+ Nouveau vendeur</button>
+                        </div>
+                    </div>
 
-        <div class="vendeur-content">
-            <!-- Panneau gauche : Sélection client -->
-            <div class="client-panel">
-                <h2>Sélectionner un client</h2>
-                
-                <div class="client-search">
-                    <input type="text" id="clientSearch" placeholder="Rechercher un client...">
-                </div>
-                
-                <div class="client-list" id="clientList">
-                    <!-- Liste des clients chargée dynamiquement -->
-                </div>
-                
-                <div class="add-client">
-                    <button id="showAddClientBtn" class="btn-add-client">+ Nouveau client</button>
+                    <!-- Panneau droit : Infos Vendeur et actions -->
+                    <div class="actions-panel">
+                        <div id="vendeurInfo" class="info hidden">
+                            <h2>Informations vendeur</h2>
+                            <div class="info-card">
+                                <p><strong>Nom :</strong> <span id="vendeurNom"></span></p>
+                                <p><strong>Prénom :</strong> <span id="vendeurPrenom"></span></p>
+                                <p><strong>Email :</strong> <span id="vendeurEmail"></span></p>
+                                <p><strong>Téléphone :</strong> <span id="vendeurTelephone"></span></p>
+                            </div>
+                            
+                            <div class="actions">
+                                <button id="viewOrdersBtn" class="btn-action">📦 Historique des commandes</button>
+                                <button id="viewReservationsBtn" class="btn-action">📅 Historique des locations</button>
+                            </div>
+                        </div>
+                        
+                        <div id="novendeurSelected" class="no-vendeur">
+                            <p>Sélectionnez un vendeur pour voir ses informations</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- Panneau droit : Infos client et actions -->
-            <div class="client-actions-panel">
-                <div id="clientInfo" class="client-info hidden">
-                    <h2>Informations client</h2>
-                    <div class="info-card">
-                        <p><strong>Nom :</strong> <span id="clientNom"></span></p>
-                        <p><strong>Prénom :</strong> <span id="clientPrenom"></span></p>
-                        <p><strong>Email :</strong> <span id="clientEmail"></span></p>
-                        <p><strong>Téléphone :</strong> <span id="clientTelephone"></span></p>
-                        <p><strong>Adresse :</strong> <span id="clientAdresse"></span></p>
+            <!-- Vue Vendeur-->
+            <div id="vendeur-vue" style="display: block;">
+                <div class="content">
+                    <!-- Panneau gauche : Sélection client -->
+                    <div class="panel">
+                        <h2>Sélectionner un client</h2>
+                        
+                        <div class="search">
+                            <input type="text" id="clientSearch" placeholder="Rechercher un client...">
+                        </div>
+                        
+                        <div class="list" id="clientList">
+                            <!-- Liste des clients chargée dynamiquement -->
+                        </div>
+                        
+                        <div class="add">
+                            <button id="showAddClientBtn" class="btn-add-client">+ Nouveau client</button>
+                        </div>
                     </div>
-                    
-                    <div class="client-actions">
-                        <button id="viewCatalogueBtn" class="btn-action">🛍️ Voir le catalogue (vue client)</button>
-                        <button id="viewOrdersBtn" class="btn-action">📦 Historique des commandes</button>
-                        <button id="viewReservationsBtn" class="btn-action">📅 Historique des locations</button>
+
+                    <!-- Panneau droit : Infos client et actions -->
+                    <div class="actions-panel">
+                        <div id="clientInfo" class="info hidden">
+                            <h2>Informations client</h2>
+                            <div class="info-card">
+                                <p><strong>Nom :</strong> <span id="clientNom"></span></p>
+                                <p><strong>Prénom :</strong> <span id="clientPrenom"></span></p>
+                                <p><strong>Email :</strong> <span id="clientEmail"></span></p>
+                                <p><strong>Téléphone :</strong> <span id="clientTelephone"></span></p>
+                                <p><strong>Adresse :</strong> <span id="clientAdresse"></span></p>
+                            </div>
+                            
+                            <div class="actions">
+                                <button id="viewCatalogueBtn" class="btn-action">🛍️ Voir le catalogue (vue client)</button>
+                                <button id="viewOrdersBtn" class="btn-action">📦 Historique des commandes</button>
+                                <button id="viewReservationsBtn" class="btn-action">📅 Historique des locations</button>
+                            </div>
+                        </div>
+                        
+                        <div id="noClientSelected" class="no-client">
+                            <p>Sélectionnez un client pour voir ses informations</p>
+                        </div>
                     </div>
-                </div>
-                
-                <div id="noClientSelected" class="no-client">
-                    <p>Sélectionnez un client pour voir ses informations</p>
                 </div>
             </div>
         </div>

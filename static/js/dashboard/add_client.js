@@ -1,18 +1,24 @@
 export function AddClient() {
     const modal = document.getElementById('addClientModal');
     const showBtn = document.getElementById('showAddClientBtn');
-    const closeBtn = modal.querySelector('.close-modal');
+    const closeBtn = modal?.querySelector('.close-modal');
     const form = document.getElementById('addClientForm');
+    
+    if (!modal || !showBtn || !closeBtn || !form) return;
     
     showBtn.addEventListener('click', () => modal.style.display = 'flex');
     closeBtn.addEventListener('click', () => modal.style.display = 'none');
     window.addEventListener('click', (e) => { if (e.target === modal) modal.style.display = 'none'; });
     
-    form.addEventListener('submit', async (e) => {
+    // Supprimer les anciens event listeners
+    const newForm = form.cloneNode(true);
+    form.parentNode.replaceChild(newForm, form);
+    
+    newForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
         const newClient = {
-            nom: document.getElementById('newClientNom').value,
+            name: document.getElementById('newClientNom').value,
             prenom: document.getElementById('newClientPrenom').value,
             email: document.getElementById('newClientEmail').value,
             telephone: document.getElementById('newClientTelephone').value,
@@ -21,7 +27,8 @@ export function AddClient() {
         };
         
         try {
-            const response = await fetch('/api/register/client', {
+            // Correction: Utiliser /api/register/clients/ au lieu de /api/register/client
+            const response = await fetch('/api/register/clients/', {
                 credentials: "include",
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -29,12 +36,16 @@ export function AddClient() {
             });
             
             if (response.ok) {
+                const result = await response.json();
                 modal.style.display = 'none';
-                form.reset();
-                loadClients();
-                alert('Client créé avec succès !');
+                newForm.reset();
+                if (window.loadClients) {
+                    await window.loadClients();
+                }
+                alert(result.message || 'Client créé avec succès !');
             } else {
-                alert('Erreur lors de la création du client');
+                const error = await response.json();
+                alert(`Erreur lors de la création du client: ${error.detail || 'Erreur inconnue'}`);
             }
         } catch (error) {
             console.error('Erreur création client:', error);

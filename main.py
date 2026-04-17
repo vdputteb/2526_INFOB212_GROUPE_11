@@ -29,8 +29,10 @@ app.add_middleware(
 # --- Middleware d'authentification ---
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
-    public_routes = ["/", "/auth"]
+    public_routes = ["/", "/auth", "/api/login"]
 
+    request.state.user = None
+    request.state.user_role = None
     # if want to go in public routes or get css , JS , ...
     if request.url.path in public_routes or request.url.path.startswith("/static"):
         return await call_next(request)
@@ -38,11 +40,12 @@ async def auth_middleware(request: Request, call_next):
     session_user = request.cookies.get("userID")
 
     if not session_user:
-        if request.url.path.startswith("/api"):
+        if request.url.path.startswith("/api") and not request.url.path.startswith("/api/login"):
             return JSONResponse(content={"message" : "Not connected"}, status_code=401)
         
         return RedirectResponse("/auth")
     
+
     if not verify_token(session_user):
         return RedirectResponse("/logout")
     
@@ -69,12 +72,12 @@ async def homer():
 
 @app.get("/auth")
 async def authentification(request : Request):
-    return templates.TemplateResponse("auth.html",{ "request" : request, "user" : request.state.user, "role" : request.state.user_role })
+    return templates.TemplateResponse(name="auth.html", context={"user" : request.state.user, "role" : request.state.user_role } , request=request)
 
 
 @app.get("/dashboard")
 async def dashboard(request : Request):
-    return templates.TemplateResponse("dashboard.html",{ "request" : request})
+    return templates.TemplateResponse(name="dashboard.html",request=request)
 
 
 @app.get("/shop")
@@ -155,10 +158,22 @@ async def register_client(request : Request , client : Client):
 
 @app.post("/api/login")
 async def login(user : Employee):
+    """
+    envoie
+    {
+    "username": "jean.dupont",
+    "mail": "jean.dupont@example.com",
+    "password": "monMotDePasse123",
+    "is_admin": true
+    }
+    """
+
+    """
+
     # 1) Récupérer les identifiants
 
     #prevoir un compte serveur en default juste pour recup ceci 
-    # et ducoup peut-être rajouter dans les appels dao le mdp et username de celui qi se connecte
+    # et ducoup peut-être rajouter dans les appels dao le mdp et username de celui qui se connecte
     player = dao.get_player_identification(user.mail)
     
     # 2) Vérifier le pseudo
@@ -170,12 +185,14 @@ async def login(user : Employee):
         raise HTTPException(status_code=401, detail="Incorrect Password")
     
     # 4)Créer la réponse avec le cookie
-    response = JSONResponse(content={"message": "Login successful"})
+
+    """
+    response = JSONResponse(content={"success" : True, "message": "Login successful", "username" : user.username ,"role" : "admin" if user.is_admin else "vendeur" })
 
     jwt_token = create_access_token(data={"username" : user.username,
                                           "password" : user.password, 
                                           "mail"     : user.mail, 
-                                          "admin"    : user.is_admin
+                                          "admin"    : user.is_admin or True # not the or  in production but for test ok
                                           })
     response.set_cookie(
         key="userID",
@@ -189,18 +206,35 @@ async def login(user : Employee):
     return response
 
 
-# --- API Client --- 
+# --- API Client ---
 
 @app.get("/api/clients")
 async def get_clients():
-    return JSONResponse(dao.get_all_clients())
+    data = dao.get_all_clients()
+    if not data :
+        raise HTTPException(status_code=404, detail="Clients Not found")
+    
+    return JSONResponse({"success" : True,"clients" : data})
 
 
-@app.get("/api/clients/{client_id}")
-async def get_client(client_id: int):
-    client = dao.get_client_by_id(client_id)
-    if not client:
+@app.get("/api/register/clients/")
+async def add_client(client : Client):
+    
+    success = dao.add_client(client)
+    if not success:
+        raise HTTPException(status_code=404, detail="A error occured ")
+    return JSONResponse({"success" : True ,
+                         "message" : "Client " + client.name + " added succesfully"})
+
+
+
+@app.put("/api/modify/client/")
+async def modify_client(client: Client):
+    success = dao.modify_client(client)
+    if not success:
         raise HTTPException(status_code=404, detail="Client Not found")
+    return JSONResponse({"success" : True ,
+                         "message" : "Client " + client.name + " modified succesfully"})
 
 
 @app.post("/api/clients/select")
@@ -214,6 +248,80 @@ async def select_client(request: Request):
     response = JSONResponse({"success": True, "client": client})
     response.set_cookie(key="clientID", value=str(client_id), httponly=True, max_age=3600*1)
     return response
+
+
+@app.delete("/api/delete/client/")
+async def delete_client(request : Request, client_id: int):
+    client = dao.delete_client_by_id(client_id)
+    if not client:
+        raise HTTPException(status_code=404, detail="Client Not found")
+    elif client_id != request.cookies.get("clientID") :
+        raise HTTPException(status_code=404, detail="Nice try but it isn't the selected client")
+    return JSONResponse({"success" : True ,
+                         "message" : "Client " + client_id + " succesfully deleted"})
+
+
+
+# --- API Vendeur ---
+
+@app.get("/api/vendeurs")
+@require_role(["admin"])
+async def get_vendeurs():
+    data = dao.get_all_vendeurs()
+    if not data :
+        raise HTTPException(status_code=404, detail="Salespersons Not found")
+    
+    return JSONResponse({"success" : True,"vendeurs" : data})
+
+
+@app.get("/api/register/vendeurs/")
+@require_role(["admin"])
+async def add_vendeur(vendeur : Employee):
+    success = dao.add_vendeur(vendeur)
+    if not success:
+        raise HTTPException(status_code=404, detail="A error occured ")
+    return JSONResponse({"success" : True ,
+                         "message" : "Vendeur " + vendeur.name + " added succesfully"})
+
+
+
+@app.put("/api/modify/vendeur/")
+@require_role(["admin"])
+async def modify_vendeur(vendeur: Employee):
+    success = dao.modify_vendeur(vendeur)
+    if not success:
+        raise HTTPException(status_code=404, detail="Vendeur Not found")
+    return JSONResponse({"success" : True ,
+                         "message" : "Vendeur " + vendeur.name + " modified succesfully"})
+
+
+@app.post("/api/vendeurs/select")
+@require_role(["admin"])
+async def select_vendeur(request: Request):
+    body = await request.json()
+    vendeur_id = body.get("vendeurs_id")
+    vendeur = dao.get_vendeur_by_id(int(vendeur_id))
+    if not vendeur:
+        raise HTTPException(status_code=404, detail="Salesperson not found")
+    
+    response = JSONResponse({"success": True, "vendeur": vendeur})
+    response.set_cookie(key="vendeurID", value=str(vendeur_id), httponly=True, max_age=3600*1)
+    return response
+
+
+
+@app.delete("/api/delete/vendeurs/")
+@require_role(["admin"])
+async def delete_vendeur(request : Request ,vendeurs_id: int):
+    vendeur = dao.delete_vendeur_by_id(vendeurs_id)
+    if not vendeur:
+        raise HTTPException(status_code=404, detail="Salesperson Not found")
+    
+    if vendeurs_id != request.cookies.get("vendeurID") :
+        raise HTTPException(status_code=404, detail="Nice try but u can only delete the selected salesperson")
+    return JSONResponse({"success" : True ,
+                         "message" : "Salesperson " + vendeurs_id + " succesfully deleted"})
+
 
 # --- API Catalogue ---
 
@@ -254,6 +362,14 @@ async def get_reservations_by_client(request : Request):
     return JSONResponse(dao.get_client_reservations(client_id))
 
 
+@app.get("/api/reservations/vendeur")
+async def get_reservations_by_vendeur(request : Request):
+
+    vendeur_id = request.cookies.get("vendeurID")
+
+    return JSONResponse(dao.get_vendeur_reservations(vendeur_id))
+
+
 @app.get("/api/reservations/check")
 async def check_availability(broom_id: int, start_date: str, end_date: str):
     try:
@@ -282,11 +398,11 @@ async def create_reservation(request : Request, reservation: Reservation):
         raise HTTPException(status_code=409, detail="This broom is already booked for this period")
     
     try :
-        dao.add_reservation(client_id , reservation)
+        dao.add_reservation(client_id , request.state.user , reservation)
         return JSONResponse("Booking made", status_code=201)
     except:
         raise HTTPException(status_code=500 ,detail="A problem occured during the booking please try again")
-    
+
 
 # - Delete -
 @app.delete("/api/reservations/{reservation_id}")
@@ -307,9 +423,16 @@ async def get_all_commandes():
 
 @app.get("/api/commandes/client")
 async def get_commandes_client(request : Request):
-    client_id = request.cookies.get("userID")
+    client_id = request.cookies.get("clientID")
 
     return JSONResponse(dao.get_client_commandes(client_id))
+
+
+@app.get("/api/commandes/vendeur")
+async def get_commandes_vendeur(request : Request):
+    vendeur_id = request.cookies.get("vendeurID")
+
+    return JSONResponse(dao.get_client_commandes(vendeur_id))
 
 
 # - Post -
@@ -322,7 +445,8 @@ async def create_commande(request: Request):
     
     except:
         raise HTTPException(status_code=500 ,detail="A problem occured during the command processing please try again")
-    
+
+
 
 # --- Lancement ---
 if __name__ == "__main__":

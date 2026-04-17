@@ -17,7 +17,7 @@ class Employee(SQLModel, table=True):
     name : str
     surname : str
     mail : str
-    phone : list[str]
+    phone: str = Field(default="")
     is_admin : bool
     id_admin : Optional[int] = None
 
@@ -27,7 +27,7 @@ class Client(SQLModel, table=True):
     """
     Model of the employee Player table in the database.
     """
-    __tablename__ = "EMPLOYEE"
+    __tablename__ = "CLIENT"
     id : int = Field(primary_key=True)
     name : str
     surname : str
@@ -40,3 +40,6 @@ class Reservation(BaseModel):
     startDate: str
     endDate: str
     userId: str
+
+
+#todo
