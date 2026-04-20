@@ -12,7 +12,6 @@ export async function showReservations(clientId) {
         const modal = document.getElementById('reservationsModal');
         const container = document.getElementById('reservationsList');
         
-        // Vider le conteneur
         while (container.firstChild) {
             container.removeChild(container.firstChild);
         }
@@ -22,12 +21,11 @@ export async function showReservations(clientId) {
             emptyMessage.textContent = 'Aucune location pour ce client.';
             container.appendChild(emptyMessage);
         } else {
-            // Récupérer les noms des balais
             const catalogueRes = await fetch('/api/catalogue');
             const catalogue = await catalogueRes.json();
             
             reservations.forEach(res => {
-                const broom = catalogue.find(b => b.id === res.broomId);
+                const broom = catalogue.find(b => b.id_balai === res.id_balai);
                 
                 const reservationCard = document.createElement('div');
                 reservationCard.className = 'reservation-card';
@@ -36,21 +34,21 @@ export async function showReservations(clientId) {
                 reservationHeader.className = 'reservation-header';
                 
                 const broomStrong = document.createElement('strong');
-                broomStrong.textContent = broom?.libelle || `Balai #${res.broomId}`;
+                broomStrong.textContent = broom?.Libelle || `Balai #${res.id_balai}`;
                 
                 const reservationDates = document.createElement('span');
                 reservationDates.className = 'reservation-dates';
-                reservationDates.textContent = `${res.startDate} → ${res.endDate}`;
+                reservationDates.textContent = `${res.begin_date} → ${res.end_date}`;
                 
                 reservationHeader.appendChild(broomStrong);
                 reservationHeader.appendChild(reservationDates);
                 
-                const reservationId = document.createElement('div');
-                reservationId.className = 'reservation-id';
-                reservationId.textContent = `Réservation #${res.id}`;
+                const reservationStatus = document.createElement('div');
+                reservationStatus.className = 'reservation-id';
+                reservationStatus.textContent = `Statut: ${res.status}`;
                 
                 reservationCard.appendChild(reservationHeader);
-                reservationCard.appendChild(reservationId);
+                reservationCard.appendChild(reservationStatus);
                 container.appendChild(reservationCard);
             });
         }

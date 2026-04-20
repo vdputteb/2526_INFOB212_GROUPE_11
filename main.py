@@ -166,9 +166,7 @@ async def login(user : Employee):
     "password": "monMotDePasse123",
     "is_admin": true
     }
-    """
 
-    """
 
     # 1) Récupérer les identifiants
 
@@ -210,6 +208,29 @@ async def login(user : Employee):
 
 @app.get("/api/clients")
 async def get_clients():
+    """{
+        "success": true,
+        "clients": [
+            {
+            "id_client": 1,
+            "name": "Potter",
+            "surname": "Harry",
+            "birth_date": "1980-07-31",
+            "money": 1250.00,
+            "type_client": "sorcier",
+            "telephones": ["+32 471 12 34 56"],
+            "sorcier": {
+                "wizard_registry_number": 1234567,
+                "chimney": "Cheminée de Poudlard",
+                "add_school_name": "Hogwarts",
+                "add_house": "Gryffindor",
+                "add_country": "UK",
+                "flight_licence": 4,
+                "owls": ["Hedwige#001"]
+            }
+            }
+        ]
+}"""
     data = dao.get_all_clients()
     if not data :
         raise HTTPException(status_code=404, detail="Clients Not found")

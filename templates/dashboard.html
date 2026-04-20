@@ -5,9 +5,6 @@
 <link rel="stylesheet" href="{{ url_for('static', path='css/dashboard.css') }}">
 <script type="module" src="{{ url_for('static', path='js/dashboard/dashboard_main.js') }}"></script>
 
-
-
-
 <section class="vendeur-section">
     <div class="vendeur-container">
         <div class="vendeur-header">
@@ -18,24 +15,18 @@
             <!-- vue admin-->
             <div id="admin-vue" style="display: none;">
                 <div class="content">
-                    <!-- Panneau gauche : Sélection Vendeur -->
                     <div class="panel">
                         <h2>Sélectionner un Vendeur</h2>
-                        
                         <div class="search">
                             <input type="text" id="vendeurSearch" placeholder="Rechercher un vendeur...">
                         </div>
-                        
                         <div class="list" id="vendeurList">
-                            <!-- Liste des vendeurs chargée dynamiquement -->
                         </div>
-                        
                         <div class="add">
                             <button id="showAddvendeurBtn" class="btn-add-vendeur">+ Nouveau vendeur</button>
                         </div>
                     </div>
 
-                    <!-- Panneau droit : Infos Vendeur et actions -->
                     <div class="actions-panel">
                         <div id="vendeurInfo" class="info hidden">
                             <h2>Informations vendeur</h2>
@@ -45,13 +36,11 @@
                                 <p><strong>Email :</strong> <span id="vendeurEmail"></span></p>
                                 <p><strong>Téléphone :</strong> <span id="vendeurTelephone"></span></p>
                             </div>
-                            
                             <div class="actions">
                                 <button id="viewOrdersBtn" class="btn-action">📦 Historique des commandes</button>
                                 <button id="viewReservationsBtn" class="btn-action">📅 Historique des locations</button>
                             </div>
                         </div>
-                        
                         <div id="novendeurSelected" class="no-vendeur">
                             <p>Sélectionnez un vendeur pour voir ses informations</p>
                         </div>
@@ -62,24 +51,18 @@
             <!-- Vue Vendeur-->
             <div id="vendeur-vue" style="display: block;">
                 <div class="content">
-                    <!-- Panneau gauche : Sélection client -->
                     <div class="panel">
                         <h2>Sélectionner un client</h2>
-                        
                         <div class="search">
                             <input type="text" id="clientSearch" placeholder="Rechercher un client...">
                         </div>
-                        
                         <div class="list" id="clientList">
-                            <!-- Liste des clients chargée dynamiquement -->
                         </div>
-                        
                         <div class="add">
                             <button id="showAddClientBtn" class="btn-add-client">+ Nouveau client</button>
                         </div>
                     </div>
 
-                    <!-- Panneau droit : Infos client et actions -->
                     <div class="actions-panel">
                         <div id="clientInfo" class="info hidden">
                             <h2>Informations client</h2>
@@ -89,15 +72,14 @@
                                 <p><strong>Email :</strong> <span id="clientEmail"></span></p>
                                 <p><strong>Téléphone :</strong> <span id="clientTelephone"></span></p>
                                 <p><strong>Adresse :</strong> <span id="clientAdresse"></span></p>
+                                <p><strong>Type :</strong> <span id="clientType"></span></p>
                             </div>
-                            
                             <div class="actions">
                                 <button id="viewCatalogueBtn" class="btn-action">🛍️ Voir le catalogue (vue client)</button>
                                 <button id="viewOrdersBtn" class="btn-action">📦 Historique des commandes</button>
                                 <button id="viewReservationsBtn" class="btn-action">📅 Historique des locations</button>
                             </div>
                         </div>
-                        
                         <div id="noClientSelected" class="no-client">
                             <p>Sélectionnez un client pour voir ses informations</p>
                         </div>
@@ -112,7 +94,7 @@
 <div id="addClientModal" class="modal">
     <div class="modal-content">
         <span class="close-modal">&times;</span>
-        <h3>➕ Nouveau client</h3>
+        <h3>+ Nouveau client</h3>
         <form id="addClientForm">
             <div class="form-group">
                 <label>Nom *</label>
@@ -123,16 +105,84 @@
                 <input type="text" id="newClientPrenom" required>
             </div>
             <div class="form-group">
-                <label>Email *</label>
-                <input type="email" id="newClientEmail" required>
+                <label>Date de naissance *</label>
+                <input type="date" id="newClientBirthDate" required>
             </div>
             <div class="form-group">
-                <label>Téléphone</label>
-                <input type="tel" id="newClientTelephone">
+                <label>Type de client *</label>
+                <select id="newClientType" required>
+                    <option value="sorcier">Sorcier</option>
+                    <option value="moldu">Moldu</option>
+                </select>
+            </div>
+            
+            <!-- Champs Sorcier (visible par défaut) -->
+            <div id="sorcierFields">
+                <div class="form-group">
+                    <label>Numéro de registre de sorcier *</label>
+                    <input type="number" id="newClientWizardRegistry">
+                </div>
+                <div class="form-group">
+                    <label>Cheminée *</label>
+                    <input type="text" id="newClientChimney">
+                </div>
+                <div class="form-group">
+                    <label>Nom de l'école *</label>
+                    <input type="text" id="newClientSchoolName">
+                </div>
+                <div class="form-group">
+                    <label>Maison *</label>
+                    <input type="text" id="newClientHouse">
+                </div>
+                <div class="form-group">
+                    <label>Pays</label>
+                    <input type="text" id="newClientCountry" >
+                </div>
+                <div class="form-group">
+                    <label>Permis de vol (0-5)</label>
+                    <input type="number" id="newClientFlightLicence" min="0" max="5" value="0">
+                </div>
+                <div class="form-group">
+                    <label>Numéros de hiboux (séparés par des virgules)</label>
+                    <input type="text" id="newClientOwls" placeholder="ex: Hedwige#001, Hedwige#002">
+                </div>
+            </div>
+            
+            <!-- Champs Moldu (caché par défaut) -->
+            <div id="molduFields" style="display: none;">
+                <div class="form-group">
+                    <label>Numéro de registre national *</label>
+                    <input type="number" id="newClientNationalRegister">
+                </div>
+                <div class="form-group">
+                    <label>Email *</label>
+                    <input type="email" id="newClientEmail">
+                </div>
+                <div class="form-group">
+                    <label>Rue *</label>
+                    <input type="text" id="newClientStreet">
+                </div>
+                <div class="form-group">
+                    <label>Ville *</label>
+                    <input type="text" id="newClientCity">
+                </div>
+                <div class="form-group">
+                    <label>Numéro de maison *</label>
+                    <input type="text" id="newClientHouseNumber">
+                </div>
+                <div class="form-group">
+                    <label>Pays *</label>
+                    <input type="text" id="newClientCountryMoldu">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Téléphones (séparés par des virgules)</label>
+                <input type="text" id="newClientTelephones" placeholder="ex: +32 471 12 34 56, +32 475 98 76 54">
             </div>
             <div class="form-group">
-                <label>Adresse</label>
-                <textarea id="newClientAdresse" rows="2"></textarea>
+                <label>Argent disponible</label>
+                <input type="number" id="newClientMoney" step="0.01" value="0">
             </div>
             <button type="submit" class="btn-submit">Créer le client</button>
         </form>

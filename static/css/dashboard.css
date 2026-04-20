@@ -582,3 +582,46 @@
     transform: translateX(5px);
     border-color: var(--primary-color);
 }
+
+/* Ajouts pour le type de client */
+#clientType {
+    background: var(--primary-color);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Amélioration du select dans les modals */
+select {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid var(--gray-medium);
+    border-radius: 10px;
+    font-size: 14px;
+    transition: var(--transition);
+    font-family: inherit;
+    background: white;
+}
+
+select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(243, 156, 18, 0.1);
+}
+
+/* Champs conditionnels */
+#sorcierFields, #molduFields {
+    transition: all 0.3s ease;
+}
+
+/* Badge de type client dans les cartes */
+.phone .sorcier-badge {
+    color: #9b59b6;
+}
+
+.phone .moldu-badge {
+    color: #3498db;
+}

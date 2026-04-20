@@ -1,4 +1,3 @@
-// modify_client.js
 export function setupModifyClient() {
     let currentClientForModify = null;
     
@@ -51,41 +50,23 @@ function createModifyModal() {
     prenomGroup.appendChild(prenomLabel);
     prenomGroup.appendChild(prenomInput);
     
-    // Champ Email
-    const emailGroup = document.createElement('div');
-    emailGroup.className = 'form-group';
-    const emailLabel = document.createElement('label');
-    emailLabel.textContent = 'Email *';
-    const emailInput = document.createElement('input');
-    emailInput.type = 'email';
-    emailInput.id = 'modifyClientEmail';
-    emailInput.required = true;
-    emailGroup.appendChild(emailLabel);
-    emailGroup.appendChild(emailInput);
+    // Type de client (non modifiable)
+    const typeGroup = document.createElement('div');
+    typeGroup.className = 'form-group';
+    const typeLabel = document.createElement('label');
+    typeLabel.textContent = 'Type de client';
+    const typeDisplay = document.createElement('p');
+    typeDisplay.id = 'modifyClientTypeDisplay';
+    typeDisplay.style.padding = '12px';
+    typeDisplay.style.background = '#f8f9fa';
+    typeDisplay.style.borderRadius = '10px';
+    typeGroup.appendChild(typeLabel);
+    typeGroup.appendChild(typeDisplay);
     
-    // Champ Téléphone
-    const phoneGroup = document.createElement('div');
-    phoneGroup.className = 'form-group';
-    const phoneLabel = document.createElement('label');
-    phoneLabel.textContent = 'Téléphone';
-    const phoneInput = document.createElement('input');
-    phoneInput.type = 'tel';
-    phoneInput.id = 'modifyClientTelephone';
-    phoneGroup.appendChild(phoneLabel);
-    phoneGroup.appendChild(phoneInput);
+    form.appendChild(nomGroup);
+    form.appendChild(prenomGroup);
+    form.appendChild(typeGroup);
     
-    // Champ Adresse
-    const adresseGroup = document.createElement('div');
-    adresseGroup.className = 'form-group';
-    const adresseLabel = document.createElement('label');
-    adresseLabel.textContent = 'Adresse';
-    const adresseTextarea = document.createElement('textarea');
-    adresseTextarea.id = 'modifyClientAdresse';
-    adresseTextarea.rows = 2;
-    adresseGroup.appendChild(adresseLabel);
-    adresseGroup.appendChild(adresseTextarea);
-    
-    // Conteneur des boutons
     const formActions = document.createElement('div');
     formActions.className = 'form-actions';
     
@@ -102,12 +83,6 @@ function createModifyModal() {
     
     formActions.appendChild(submitBtn);
     formActions.appendChild(deleteBtn);
-    
-    form.appendChild(nomGroup);
-    form.appendChild(prenomGroup);
-    form.appendChild(emailGroup);
-    form.appendChild(phoneGroup);
-    form.appendChild(adresseGroup);
     form.appendChild(formActions);
     
     modalContent.appendChild(closeSpan);
@@ -175,10 +150,8 @@ function openModifyModal(client) {
     const modal = document.getElementById('modifyClientModal');
     
     document.getElementById('modifyClientNom').value = client.name || '';
-    document.getElementById('modifyClientPrenom').value = client.prenom || '';
-    document.getElementById('modifyClientEmail').value = client.email || '';
-    document.getElementById('modifyClientTelephone').value = client.telephone || '';
-    document.getElementById('modifyClientAdresse').value = client.adresse || '';
+    document.getElementById('modifyClientPrenom').value = client.surname || '';
+    document.getElementById('modifyClientTypeDisplay').textContent = client.type_client === 'sorcier' ? '🧙 Sorcier' : '🏠 Moldu';
     
     window.currentClientForModify = client;
     
@@ -188,7 +161,7 @@ function openModifyModal(client) {
     
     newForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        await modifyClient(window.currentClientForModify.id);
+        await modifyClient(window.currentClientForModify.id_client);
     });
     
     const deleteBtn = document.getElementById('deleteClientBtn');
@@ -207,12 +180,9 @@ function openModifyModal(client) {
 
 async function modifyClient(clientId) {
     const updatedClient = {
-        id: clientId,  // Ajout de l'ID requis par l'API
+        id_client: clientId,
         name: document.getElementById('modifyClientNom').value,
-        prenom: document.getElementById('modifyClientPrenom').value,
-        email: document.getElementById('modifyClientEmail').value,
-        telephone: document.getElementById('modifyClientTelephone').value,
-        adresse: document.getElementById('modifyClientAdresse').value
+        surname: document.getElementById('modifyClientPrenom').value
     };
     
     try {
@@ -233,7 +203,7 @@ async function modifyClient(clientId) {
                     await window.loadClients();
                 }
                 
-                if (window.currentClient && window.currentClient.id === clientId) {
+                if (window.currentClient && window.currentClient.id_client === clientId) {
                     window.currentClient = { ...window.currentClient, ...updatedClient };
                     if (window.displayClientInfo) {
                         window.displayClientInfo(window.currentClient);
@@ -253,13 +223,12 @@ async function modifyClient(clientId) {
 }
 
 async function confirmDeleteClient(client) {
-    if (!confirm(`Êtes-vous sûr de vouloir supprimer définitivement le client ${client.prenom} ${client.name} ?\n\nCette action est irréversible et supprimera toutes ses commandes et réservations.`)) {
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer définitivement le client ${client.surname} ${client.name} ?\n\nCette action est irréversible et supprimera toutes ses commandes et réservations.`)) {
         return;
     }
     
     try {
-        // Correction: L'API attend client_id comme paramètre de requête
-        const response = await fetch(`/api/delete/client/?client_id=${client.id}`, {
+        const response = await fetch(`/api/delete/client/?client_id=${client.id_client}`, {
             credentials: "include",
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' }

@@ -1,4 +1,3 @@
-
 export async function showOrders(clientId) {
     try {
         const response = await fetch("/api/commandes/client", {
@@ -13,7 +12,6 @@ export async function showOrders(clientId) {
         const modal = document.getElementById('ordersModal');
         const container = document.getElementById('ordersList');
         
-        // Vider le conteneur
         while (container.firstChild) {
             container.removeChild(container.firstChild);
         }
@@ -31,44 +29,21 @@ export async function showOrders(clientId) {
                 orderHeader.className = 'order-header';
                 
                 const orderIdStrong = document.createElement('strong');
-                orderIdStrong.textContent = `Commande #${cmd.id}`;
+                orderIdStrong.textContent = `Commande #${cmd.id_commande}`;
                 
                 const orderDate = document.createElement('span');
                 orderDate.className = 'order-date';
-                orderDate.textContent = new Date(cmd.date_commande).toLocaleDateString();
+                orderDate.textContent = new Date(cmd.command_date).toLocaleDateString();
                 
-                const orderStatus = document.createElement('span');
-                orderStatus.className = 'order-status';
-                orderStatus.textContent = cmd.statut;
+                const orderType = document.createElement('span');
+                orderType.className = 'order-status';
+                orderType.textContent = cmd.type_commande === 'vente' ? '💰 Vente' : '📅 Location';
                 
                 orderHeader.appendChild(orderIdStrong);
                 orderHeader.appendChild(orderDate);
-                orderHeader.appendChild(orderStatus);
-                
-                const orderTotal = document.createElement('div');
-                orderTotal.className = 'order-total';
-                orderTotal.textContent = `Total : ${cmd.total.toFixed(2)} €`;
-                
-                const orderItems = document.createElement('div');
-                orderItems.className = 'order-items';
-                
-                cmd.articles.forEach(article => {
-                    const orderItem = document.createElement('div');
-                    orderItem.className = 'order-item';
-                    orderItem.textContent = `${article.name} x ${article.quantity} - ${article.total.toFixed(2)}€`;
-                    
-                    if (article.rental_dates) {
-                        const small = document.createElement('small');
-                        small.textContent = ` (${article.rental_dates})`;
-                        orderItem.appendChild(small);
-                    }
-                    
-                    orderItems.appendChild(orderItem);
-                });
+                orderHeader.appendChild(orderType);
                 
                 orderCard.appendChild(orderHeader);
-                orderCard.appendChild(orderTotal);
-                orderCard.appendChild(orderItems);
                 container.appendChild(orderCard);
             });
         }

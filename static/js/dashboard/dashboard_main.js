@@ -14,30 +14,23 @@ document.addEventListener('DOMContentLoaded', () => {
     let role = sessionStorage.getItem("role");
     console.log("Rôle détecté:", role);
     
-    // Gestion de l'affichage des vues
     const adminVue = document.getElementById("admin-vue");
     const vendeurVue = document.getElementById("vendeur-vue");
     
     if (role && role.toLowerCase() === "admin") {
         if (adminVue) adminVue.style.display = "block";
-
         loadVendeurs();
         setupAdminEventListeners();
     } else {
-        
         if (adminVue) adminVue.style.display = "none";
     }
     if (vendeurVue) vendeurVue.style.display = "block";
     
-    // Charger les clients pour le vendeur
     loadClients();
     setupVendeurEventListeners();
     AddClient();
     setupModifyClient();
-    
 });
-
-// ========== FONCTIONS POUR LA VUE VENDEUR ==========
 
 async function loadClients() {
     try {
@@ -72,36 +65,37 @@ function displayClients(clients) {
     
     const filtered = clients.filter(c => 
         c.name?.toLowerCase().includes(searchTerm) || 
-        c.prenom?.toLowerCase().includes(searchTerm) ||
-        c.email?.toLowerCase().includes(searchTerm)
+        c.surname?.toLowerCase().includes(searchTerm) ||
+        (c.moldu?.mail?.toLowerCase().includes(searchTerm)) ||
+        (c.sorcier?.chimney?.toLowerCase().includes(searchTerm))
     );
     
-    // Vider le conteneur
     while (container.firstChild) {
         container.removeChild(container.firstChild);
     }
     
-    // Ajouter chaque client
     filtered.forEach(client => {
         const card = document.createElement('div');
-        card.className = `card ${currentClient?.id === client.id ? 'selected' : ''}`;
-        card.dataset.clientId = client.id;
+        card.className = `card ${currentClient?.id === client.id_client ? 'selected' : ''}`;
+        card.dataset.clientId = client.id_client;
         
         const nameDiv = document.createElement('div');
         nameDiv.className = 'name';
-        nameDiv.textContent = `${client.prenom} ${client.name}`;
+        nameDiv.textContent = `${client.surname} ${client.name}`;
         
         const emailDiv = document.createElement('div');
         emailDiv.className = 'email';
-        emailDiv.textContent = client.email;
+        emailDiv.textContent = client.type_client === 'sorcier' ? 
+            (client.sorcier?.chimney || 'Pas de cheminée') : 
+            (client.moldu?.mail || 'Pas d\'email');
         
-        const phoneDiv = document.createElement('div');
-        phoneDiv.className = 'phone';
-        phoneDiv.textContent = client.telephone || 'Pas de téléphone';
+        const typeDiv = document.createElement('div');
+        typeDiv.className = 'phone';
+        typeDiv.textContent = client.type_client === 'sorcier' ? '🧙 Sorcier' : '🏠 Moldu';
         
         card.appendChild(nameDiv);
         card.appendChild(emailDiv);
-        card.appendChild(phoneDiv);
+        card.appendChild(typeDiv);
         
         card.addEventListener('click', () => selectClient(parseInt(card.dataset.clientId)));
         
@@ -144,21 +138,23 @@ function displayClientInfo(client) {
     if (clientInfo) clientInfo.classList.remove('hidden');
     if (noClientSelected) noClientSelected.classList.add('hidden');
     
-    const nomSpan = document.getElementById('clientNom');
-    const prenomSpan = document.getElementById('clientPrenom');
-    const emailSpan = document.getElementById('clientEmail');
-    const telephoneSpan = document.getElementById('clientTelephone');
-    const adresseSpan = document.getElementById('clientAdresse');
+    document.getElementById('clientNom').textContent = client.name || '';
+    document.getElementById('clientPrenom').textContent = client.surname || '';
+    document.getElementById('clientType').textContent = client.type_client === 'sorcier' ? '🧙 Sorcier' : '🏠 Moldu';
     
-    if (nomSpan) nomSpan.textContent = client.name || '';
-    if (prenomSpan) prenomSpan.textContent = client.prenom || '';
-    if (emailSpan) emailSpan.textContent = client.email || '';
-    if (telephoneSpan) telephoneSpan.textContent = client.telephone || 'Non renseigné';
-    if (adresseSpan) adresseSpan.textContent = client.adresse || 'Non renseignée';
+    if (client.type_client === 'sorcier' && client.sorcier) {
+        document.getElementById('clientEmail').textContent = client.sorcier.chimney || 'Non renseigné';
+        document.getElementById('clientAdresse').textContent = `${client.sorcier.add_house || ''}, ${client.sorcier.add_school_name || ''}`;
+    } else if (client.moldu) {
+        document.getElementById('clientEmail').textContent = client.moldu.mail || 'Non renseigné';
+        document.getElementById('clientAdresse').textContent = `${client.moldu.add_house_number || ''} ${client.moldu.add_street || ''}, ${client.moldu.add_city || ''}, ${client.moldu.add_country || ''}`;
+    }
+    
+    const telephones = client.telephones || [];
+    document.getElementById('clientTelephone').textContent = telephones.length > 0 ? telephones.join(', ') : 'Non renseigné';
 }
 
 function setupVendeurEventListeners() {
-    // Déconnexion
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async () => {
@@ -166,13 +162,11 @@ function setupVendeurEventListeners() {
         });
     }
     
-    // Recherche client
     const clientSearch = document.getElementById('clientSearch');
     if (clientSearch) {
         clientSearch.addEventListener('input', () => loadClients());
     }
     
-    // Bouton catalogue
     const viewCatalogueBtn = document.getElementById('viewCatalogueBtn');
     if (viewCatalogueBtn) {
         viewCatalogueBtn.addEventListener('click', () => {
@@ -184,24 +178,22 @@ function setupVendeurEventListeners() {
         });
     }
     
-    // Bouton commandes
     const viewOrdersBtn = document.getElementById('viewOrdersBtn');
     if (viewOrdersBtn) {
         viewOrdersBtn.addEventListener('click', async () => {
             if (currentClient) {
-                await showOrders(currentClient.id);
+                await showOrders(currentClient.id_client);
             } else {
                 alert('Veuillez d\'abord sélectionner un client');
             }
         });
     }
     
-    // Bouton réservations
     const viewReservationsBtn = document.getElementById('viewReservationsBtn');
     if (viewReservationsBtn) {
         viewReservationsBtn.addEventListener('click', async () => {
             if (currentClient) {
-                await showReservations(currentClient.id);
+                await showReservations(currentClient.id_client);
             } else {
                 alert('Veuillez d\'abord sélectionner un client');
             }
@@ -246,36 +238,34 @@ function displayVendeurs(vendeurs) {
     
     const filtered = vendeurs.filter(v => 
         v.name?.toLowerCase().includes(searchTerm) || 
-        v.prenom?.toLowerCase().includes(searchTerm) ||
-        v.email?.toLowerCase().includes(searchTerm)
+        v.surname?.toLowerCase().includes(searchTerm) ||
+        v.mail_pro?.toLowerCase().includes(searchTerm)
     );
     
-    // Vider le conteneur
     while (container.firstChild) {
         container.removeChild(container.firstChild);
     }
     
-    // Ajouter chaque vendeur
     filtered.forEach(vendeur => {
         const card = document.createElement('div');
-        card.className = `card ${currentVendeur?.id === vendeur.id ? 'selected' : ''}`;
-        card.dataset.vendeurId = vendeur.id;
+        card.className = `card ${currentVendeur?.id_employee === vendeur.id_employee ? 'selected' : ''}`;
+        card.dataset.vendeurId = vendeur.id_employee;
         
         const nameDiv = document.createElement('div');
         nameDiv.className = 'name';
-        nameDiv.textContent = `${vendeur.prenom} ${vendeur.name}`;
+        nameDiv.textContent = `${vendeur.surname} ${vendeur.name}`;
         
         const emailDiv = document.createElement('div');
         emailDiv.className = 'email';
-        emailDiv.textContent = vendeur.email;
+        emailDiv.textContent = vendeur.mail_pro;
         
-        const phoneDiv = document.createElement('div');
-        phoneDiv.className = 'phone';
-        phoneDiv.textContent = vendeur.telephone || 'Pas de téléphone';
+        const roleDiv = document.createElement('div');
+        roleDiv.className = 'phone';
+        roleDiv.textContent = vendeur.is_patron ? '👑 Patron' : '👤 Vendeur';
         
         card.appendChild(nameDiv);
         card.appendChild(emailDiv);
-        card.appendChild(phoneDiv);
+        card.appendChild(roleDiv);
         
         card.addEventListener('click', () => selectVendeur(parseInt(card.dataset.vendeurId)));
         
@@ -289,7 +279,7 @@ async function selectVendeur(vendeurId) {
             credentials: "include",
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ vendeur_id: vendeurId })
+            body: JSON.stringify({ vendeurs_id: vendeurId })
         });
         
         const data = await response.json();
@@ -317,19 +307,13 @@ function displayVendeurInfo(vendeur) {
     if (vendeurInfo) vendeurInfo.classList.remove('hidden');
     if (noVendeurSelected) noVendeurSelected.classList.add('hidden');
     
-    const nomSpan = document.getElementById('vendeurNom');
-    const prenomSpan = document.getElementById('vendeurPrenom');
-    const emailSpan = document.getElementById('vendeurEmail');
-    const telephoneSpan = document.getElementById('vendeurTelephone');
-    
-    if (nomSpan) nomSpan.textContent = vendeur.name || '';
-    if (prenomSpan) prenomSpan.textContent = vendeur.prenom || '';
-    if (emailSpan) emailSpan.textContent = vendeur.email || '';
-    if (telephoneSpan) telephoneSpan.textContent = vendeur.telephone || 'Non renseigné';
+    document.getElementById('vendeurNom').textContent = vendeur.name || '';
+    document.getElementById('vendeurPrenom').textContent = vendeur.surname || '';
+    document.getElementById('vendeurEmail').textContent = vendeur.mail_pro || '';
+    document.getElementById('vendeurTelephone').textContent = 'Non renseigné';
 }
 
 function setupAdminEventListeners() {
-    // Déconnexion
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async () => {
@@ -337,39 +321,34 @@ function setupAdminEventListeners() {
         });
     }
     
-    // Recherche vendeur
     const vendeurSearch = document.getElementById('vendeurSearch');
     if (vendeurSearch) {
         vendeurSearch.addEventListener('input', () => loadVendeurs());
     }
     
-    // Bouton ajout vendeur
     const showAddVendeurBtn = document.getElementById('showAddvendeurBtn');
     if (showAddVendeurBtn) {
         showAddVendeurBtn.addEventListener('click', () => {
-            // TODO: Implémenter l'ajout de vendeur
             alert('Fonctionnalité à implémenter');
         });
     }
     
-    // Bouton commandes vendeur
     const viewOrdersBtn = document.getElementById('viewOrdersBtn');
     if (viewOrdersBtn) {
         viewOrdersBtn.addEventListener('click', async () => {
             if (currentVendeur) {
-                await showVendeurOrders(currentVendeur.id);
+                await showVendeurOrders(currentVendeur.id_employee);
             } else {
                 alert('Veuillez d\'abord sélectionner un vendeur');
             }
         });
     }
     
-    // Bouton réservations vendeur
     const viewReservationsBtn = document.getElementById('viewReservationsBtn');
     if (viewReservationsBtn) {
         viewReservationsBtn.addEventListener('click', async () => {
             if (currentVendeur) {
-                await showVendeurReservations(currentVendeur.id);
+                await showVendeurReservations(currentVendeur.id_employee);
             } else {
                 alert('Veuillez d\'abord sélectionner un vendeur');
             }
@@ -442,7 +421,7 @@ async function showVendeurReservations(vendeurId) {
                 const catalogue = await catalogueRes.json();
                 
                 reservations.forEach(res => {
-                    const broom = catalogue.find(b => b.id === res.broomId);
+                    const broom = catalogue.find(b => b.id_balai === res.id_balai);
                     const reservationCard = createReservationCard(res, broom);
                     container.appendChild(reservationCard);
                 });
@@ -469,46 +448,21 @@ function createOrderCard(cmd) {
     orderHeader.className = 'order-header';
     
     const orderIdStrong = document.createElement('strong');
-    orderIdStrong.textContent = `Commande #${cmd.id}`;
+    orderIdStrong.textContent = `Commande #${cmd.id_commande}`;
     
     const orderDate = document.createElement('span');
     orderDate.className = 'order-date';
-    orderDate.textContent = new Date(cmd.date_commande).toLocaleDateString();
+    orderDate.textContent = new Date(cmd.command_date).toLocaleDateString();
     
-    const orderStatus = document.createElement('span');
-    orderStatus.className = 'order-status';
-    orderStatus.textContent = cmd.statut;
+    const orderType = document.createElement('span');
+    orderType.className = 'order-status';
+    orderType.textContent = cmd.type_commande === 'vente' ? '💰 Vente' : '📅 Location';
     
     orderHeader.appendChild(orderIdStrong);
     orderHeader.appendChild(orderDate);
-    orderHeader.appendChild(orderStatus);
-    
-    const orderTotal = document.createElement('div');
-    orderTotal.className = 'order-total';
-    orderTotal.textContent = `Total : ${cmd.total.toFixed(2)} €`;
-    
-    const orderItems = document.createElement('div');
-    orderItems.className = 'order-items';
-    
-    if (cmd.articles) {
-        cmd.articles.forEach(article => {
-            const orderItem = document.createElement('div');
-            orderItem.className = 'order-item';
-            orderItem.textContent = `${article.name} x ${article.quantity} - ${article.total?.toFixed(2)}€`;
-            
-            if (article.rental_dates) {
-                const small = document.createElement('small');
-                small.textContent = ` (${article.rental_dates})`;
-                orderItem.appendChild(small);
-            }
-            
-            orderItems.appendChild(orderItem);
-        });
-    }
+    orderHeader.appendChild(orderType);
     
     orderCard.appendChild(orderHeader);
-    orderCard.appendChild(orderTotal);
-    orderCard.appendChild(orderItems);
     
     return orderCard;
 }
@@ -521,21 +475,21 @@ function createReservationCard(res, broom) {
     reservationHeader.className = 'reservation-header';
     
     const broomStrong = document.createElement('strong');
-    broomStrong.textContent = broom?.libelle || `Balai #${res.broomId}`;
+    broomStrong.textContent = broom?.Libelle || `Balai #${res.id_balai}`;
     
     const reservationDates = document.createElement('span');
     reservationDates.className = 'reservation-dates';
-    reservationDates.textContent = `${res.startDate} → ${res.endDate}`;
+    reservationDates.textContent = `${res.begin_date} → ${res.end_date}`;
     
     reservationHeader.appendChild(broomStrong);
     reservationHeader.appendChild(reservationDates);
     
-    const reservationId = document.createElement('div');
-    reservationId.className = 'reservation-id';
-    reservationId.textContent = `Réservation #${res.id}`;
+    const reservationStatus = document.createElement('div');
+    reservationStatus.className = 'reservation-id';
+    reservationStatus.textContent = `Statut: ${res.status}`;
     
     reservationCard.appendChild(reservationHeader);
-    reservationCard.appendChild(reservationId);
+    reservationCard.appendChild(reservationStatus);
     
     return reservationCard;
 }
