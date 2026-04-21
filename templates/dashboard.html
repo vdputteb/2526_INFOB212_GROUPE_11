@@ -23,7 +23,7 @@
                         <div class="list" id="vendeurList">
                         </div>
                         <div class="add">
-                            <button id="showAddvendeurBtn" class="btn-add-vendeur">+ Nouveau vendeur</button>
+                            <button id="showAddVendeurBtn" class="btn-add-vendeur">+ Nouveau vendeur</button>
                         </div>
                     </div>
 
@@ -35,13 +35,17 @@
                                 <p><strong>Prénom :</strong> <span id="vendeurPrenom"></span></p>
                                 <p><strong>Email :</strong> <span id="vendeurEmail"></span></p>
                                 <p><strong>Téléphone :</strong> <span id="vendeurTelephone"></span></p>
+                                <p><strong>Login :</strong> <span id="vendeurLogin"></span></p>
+                                <p><strong>Statut :</strong> <span id="vendeurActif"></span></p>
                             </div>
                             <div class="actions">
-                                <button id="viewOrdersBtn" class="btn-action">📦 Historique des commandes</button>
-                                <button id="viewReservationsBtn" class="btn-action">📅 Historique des locations</button>
+                                <button id="viewVendeurOrdersBtn" class="btn-action">📦 Commandes traitées</button>
+                                <button id="viewVendeurReservationsBtn" class="btn-action">📅 Locations gérées</button>
+                                <button id="modifyVendeurBtn" class="btn-action">✏️ Modifier le vendeur</button>
+                                <button id="deleteVendeurBtn" class="btn-action btn-danger">🗑️ Supprimer</button>
                             </div>
                         </div>
-                        <div id="novendeurSelected" class="no-vendeur">
+                        <div id="noVendeurSelected" class="no-vendeur">
                             <p>Sélectionnez un vendeur pour voir ses informations</p>
                         </div>
                     </div>
@@ -69,15 +73,40 @@
                             <div class="info-card">
                                 <p><strong>Nom :</strong> <span id="clientNom"></span></p>
                                 <p><strong>Prénom :</strong> <span id="clientPrenom"></span></p>
+                                <p><strong>Date de naissance :</strong> <span id="clientBirthDate"></span></p>
                                 <p><strong>Email :</strong> <span id="clientEmail"></span></p>
-                                <p><strong>Téléphone :</strong> <span id="clientTelephone"></span></p>
+                                <p><strong>Téléphones :</strong> <span id="clientTelephone"></span></p>
                                 <p><strong>Adresse :</strong> <span id="clientAdresse"></span></p>
                                 <p><strong>Type :</strong> <span id="clientType"></span></p>
+                                <p><strong>Argent disponible :</strong> <span id="clientMoney"></span> €</p>
                             </div>
+                            
+                            <!-- Détails spécifiques Sorcier -->
+                            <div id="sorcierDetails" class="info-card" style="display: none;">
+                                <h3>🧙 Détails Sorcier</h3>
+                                <p><strong>Registre de sorcier :</strong> <span id="sorcierRegistry"></span></p>
+                                <p><strong>Cheminée :</strong> <span id="sorcierChimney"></span></p>
+                                <p><strong>École :</strong> <span id="sorcierSchool"></span></p>
+                                <p><strong>Maison :</strong> <span id="sorcierHouse"></span></p>
+                                <p><strong>Pays :</strong> <span id="sorcierCountry"></span></p>
+                                <p><strong>Permis de vol :</strong> <span id="sorcierFlightLicence"></span></p>
+                                <p><strong>Hiboux :</strong> <span id="sorcierOwls"></span></p>
+                            </div>
+                            
+                            <!-- Détails spécifiques Moldu -->
+                            <div id="molduDetails" class="info-card" style="display: none;">
+                                <h3>🏠 Détails Moldu</h3>
+                                <p><strong>Registre national :</strong> <span id="molduNationalRegister"></span></p>
+                                <p><strong>Rue :</strong> <span id="molduStreet"></span></p>
+                                <p><strong>Ville :</strong> <span id="molduCity"></span></p>
+                                <p><strong>Numéro :</strong> <span id="molduHouseNumber"></span></p>
+                                <p><strong>Pays :</strong> <span id="molduCountry"></span></p>
+                            </div>
+                            
                             <div class="actions">
-                                <button id="viewCatalogueBtn" class="btn-action">🛍️ Voir le catalogue (vue client)</button>
-                                <button id="viewOrdersBtn" class="btn-action">📦 Historique des commandes</button>
-                                <button id="viewReservationsBtn" class="btn-action">📅 Historique des locations</button>
+                                <button id="viewCatalogueBtn" class="btn-action">🛍️ Voir le catalogue</button>
+                                <button id="viewOrdersBtn" class="btn-action">📦 Commandes</button>
+                                <button id="viewReservationsBtn" class="btn-action">📅 Locations</button>
                             </div>
                         </div>
                         <div id="noClientSelected" class="no-client">
@@ -99,6 +128,7 @@
             <div class="form-group">
                 <label>Nom *</label>
                 <input type="text" id="newClientNom" required>
+                <small class="validation-hint">2 à 50 caractères, lettres et accents uniquement</small>
             </div>
             <div class="form-group">
                 <label>Prénom *</label>
@@ -116,7 +146,7 @@
                 </select>
             </div>
             
-            <!-- Champs Sorcier (visible par défaut) -->
+            <!-- Champs Sorcier -->
             <div id="sorcierFields">
                 <div class="form-group">
                     <label>Numéro de registre de sorcier *</label>
@@ -136,7 +166,7 @@
                 </div>
                 <div class="form-group">
                     <label>Pays</label>
-                    <input type="text" id="newClientCountry" >
+                    <input type="text" id="newClientCountry" value="United Kingdom">
                 </div>
                 <div class="form-group">
                     <label>Permis de vol (0-5)</label>
@@ -145,10 +175,11 @@
                 <div class="form-group">
                     <label>Numéros de hiboux (séparés par des virgules)</label>
                     <input type="text" id="newClientOwls" placeholder="ex: Hedwige#001, Hedwige#002">
+                    <small class="validation-hint">Format: Nom#001 (3 chiffres après #)</small>
                 </div>
             </div>
             
-            <!-- Champs Moldu (caché par défaut) -->
+            <!-- Champs Moldu -->
             <div id="molduFields" style="display: none;">
                 <div class="form-group">
                     <label>Numéro de registre national *</label>
@@ -157,6 +188,7 @@
                 <div class="form-group">
                     <label>Email *</label>
                     <input type="email" id="newClientEmail">
+                    <small class="validation-hint">Format: nom@domaine.com</small>
                 </div>
                 <div class="form-group">
                     <label>Rue *</label>
@@ -172,7 +204,7 @@
                 </div>
                 <div class="form-group">
                     <label>Pays *</label>
-                    <input type="text" id="newClientCountryMoldu">
+                    <input type="text" id="newClientCountryMoldu" value="United Kingdom">
                 </div>
             </div>
             
@@ -189,20 +221,20 @@
     </div>
 </div>
 
-<!-- Modal commandes client -->
+<!-- Modal commandes -->
 <div id="ordersModal" class="modal modal-large">
     <div class="modal-content">
         <span class="close-modal">&times;</span>
-        <h3>📦 Commandes du client</h3>
+        <h3 id="ordersModalTitle">📦 Commandes</h3>
         <div id="ordersList" class="orders-list"></div>
     </div>
 </div>
 
-<!-- Modal locations client -->
+<!-- Modal locations -->
 <div id="reservationsModal" class="modal modal-large">
     <div class="modal-content">
         <span class="close-modal">&times;</span>
-        <h3>📅 Locations du client</h3>
+        <h3 id="reservationsModalTitle">📅 Locations</h3>
         <div id="reservationsList" class="reservations-list"></div>
     </div>
 </div>

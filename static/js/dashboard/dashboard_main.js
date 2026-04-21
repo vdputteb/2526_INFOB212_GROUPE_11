@@ -4,7 +4,9 @@ import {AddClient} from './add_client.js';
 import {setupModifyClient} from './modify_client.js';
 
 let currentClient = null;
+let currentVendeur = null;
 window.currentClient = currentClient;
+window.currentVendeur = currentVendeur;
 window.loadClients = loadClients;
 window.displayClientInfo = displayClientInfo;
 
@@ -19,17 +21,17 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (role && role.toLowerCase() === "admin") {
         if (adminVue) adminVue.style.display = "block";
+        if (vendeurVue) vendeurVue.style.display = "none";
         loadVendeurs();
         setupAdminEventListeners();
     } else {
         if (adminVue) adminVue.style.display = "none";
+        if (vendeurVue) vendeurVue.style.display = "block";
+        loadClients();
+        setupVendeurEventListeners();
+        AddClient();
+        setupModifyClient();
     }
-    if (vendeurVue) vendeurVue.style.display = "block";
-    
-    loadClients();
-    setupVendeurEventListeners();
-    AddClient();
-    setupModifyClient();
 });
 
 async function loadClients() {
@@ -76,18 +78,20 @@ function displayClients(clients) {
     
     filtered.forEach(client => {
         const card = document.createElement('div');
-        card.className = `card ${currentClient?.id === client.id_client ? 'selected' : ''}`;
+        card.className = `card ${currentClient?.id_client === client.id_client ? 'selected' : ''}`;
         card.dataset.clientId = client.id_client;
         
         const nameDiv = document.createElement('div');
         nameDiv.className = 'name';
-        nameDiv.textContent = `${client.surname} ${client.name}`;
+        nameDiv.textContent = `${client.surname || ''} ${client.name || ''}`;
         
         const emailDiv = document.createElement('div');
         emailDiv.className = 'email';
-        emailDiv.textContent = client.type_client === 'sorcier' ? 
-            (client.sorcier?.chimney || 'Pas de cheminée') : 
-            (client.moldu?.mail || 'Pas d\'email');
+        if (client.type_client === 'sorcier') {
+            emailDiv.textContent = client.sorcier?.chimney || 'Pas de cheminée';
+        } else {
+            emailDiv.textContent = client.moldu?.mail || 'Pas d\'email';
+        }
         
         const typeDiv = document.createElement('div');
         typeDiv.className = 'phone';
@@ -134,20 +138,51 @@ async function selectClient(clientId) {
 function displayClientInfo(client) {
     const clientInfo = document.getElementById('clientInfo');
     const noClientSelected = document.getElementById('noClientSelected');
+    const sorcierDetails = document.getElementById('sorcierDetails');
+    const molduDetails = document.getElementById('molduDetails');
     
     if (clientInfo) clientInfo.classList.remove('hidden');
     if (noClientSelected) noClientSelected.classList.add('hidden');
     
+    // Informations générales
     document.getElementById('clientNom').textContent = client.name || '';
     document.getElementById('clientPrenom').textContent = client.surname || '';
-    document.getElementById('clientType').textContent = client.type_client === 'sorcier' ? '🧙 Sorcier' : '🏠 Moldu';
+    document.getElementById('clientBirthDate').textContent = client.birth_date || 'Non renseigné';
+    document.getElementById('clientType').innerHTML = client.type_client === 'sorcier' ? '🧙 Sorcier' : '🏠 Moldu';
+    document.getElementById('clientMoney').textContent = client.money ? parseFloat(client.money).toFixed(2) : '0.00';
     
+    // Afficher les détails spécifiques
     if (client.type_client === 'sorcier' && client.sorcier) {
+        sorcierDetails.style.display = 'block';
+        molduDetails.style.display = 'none';
+        
         document.getElementById('clientEmail').textContent = client.sorcier.chimney || 'Non renseigné';
-        document.getElementById('clientAdresse').textContent = `${client.sorcier.add_house || ''}, ${client.sorcier.add_school_name || ''}`;
+        document.getElementById('clientAdresse').textContent = `${client.sorcier.add_house || ''}, ${client.sorcier.add_school_name || ''}, ${client.sorcier.add_country || ''}`;
+        
+        document.getElementById('sorcierRegistry').textContent = client.sorcier.wizard_registry_number || 'Non renseigné';
+        document.getElementById('sorcierChimney').textContent = client.sorcier.chimney || 'Non renseigné';
+        document.getElementById('sorcierSchool').textContent = client.sorcier.add_school_name || 'Non renseigné';
+        document.getElementById('sorcierHouse').textContent = client.sorcier.add_house || 'Non renseigné';
+        document.getElementById('sorcierCountry').textContent = client.sorcier.add_country || 'Non renseigné';
+        document.getElementById('sorcierFlightLicence').textContent = client.sorcier.flight_licence || '0';
+        
+        const owls = client.sorcier.owls || [];
+        document.getElementById('sorcierOwls').textContent = owls.length > 0 ? owls.join(', ') : 'Aucun';
+        
     } else if (client.moldu) {
+        sorcierDetails.style.display = 'none';
+        molduDetails.style.display = 'block';
+        
         document.getElementById('clientEmail').textContent = client.moldu.mail || 'Non renseigné';
-        document.getElementById('clientAdresse').textContent = `${client.moldu.add_house_number || ''} ${client.moldu.add_street || ''}, ${client.moldu.add_city || ''}, ${client.moldu.add_country || ''}`;
+        
+        const address = client.moldu.address || {};
+        document.getElementById('clientAdresse').textContent = `${address.house_number || ''} ${address.street || ''}, ${address.city || ''}, ${address.country || ''}`;
+        
+        document.getElementById('molduNationalRegister').textContent = client.moldu.national_register_number || 'Non renseigné';
+        document.getElementById('molduStreet').textContent = address.street || 'Non renseigné';
+        document.getElementById('molduCity').textContent = address.city || 'Non renseigné';
+        document.getElementById('molduHouseNumber').textContent = address.house_number || 'Non renseigné';
+        document.getElementById('molduCountry').textContent = address.country || 'Non renseigné';
     }
     
     const telephones = client.telephones || [];
@@ -203,8 +238,6 @@ function setupVendeurEventListeners() {
 
 // ========== FONCTIONS POUR LA VUE ADMIN ==========
 
-let currentVendeur = null;
-
 async function loadVendeurs() {
     try {
         const response = await fetch("/api/vendeurs", {
@@ -253,19 +286,19 @@ function displayVendeurs(vendeurs) {
         
         const nameDiv = document.createElement('div');
         nameDiv.className = 'name';
-        nameDiv.textContent = `${vendeur.surname} ${vendeur.name}`;
+        nameDiv.textContent = `${vendeur.surname || ''} ${vendeur.name || ''}`;
         
         const emailDiv = document.createElement('div');
         emailDiv.className = 'email';
-        emailDiv.textContent = vendeur.mail_pro;
+        emailDiv.textContent = vendeur.mail_pro || '';
         
-        const roleDiv = document.createElement('div');
-        roleDiv.className = 'phone';
-        roleDiv.textContent = vendeur.is_patron ? '👑 Patron' : '👤 Vendeur';
+        const statusDiv = document.createElement('div');
+        statusDiv.className = 'phone';
+        statusDiv.textContent = vendeur.actif ? '🟢 Actif' : '🔴 Inactif';
         
         card.appendChild(nameDiv);
         card.appendChild(emailDiv);
-        card.appendChild(roleDiv);
+        card.appendChild(statusDiv);
         
         card.addEventListener('click', () => selectVendeur(parseInt(card.dataset.vendeurId)));
         
@@ -285,6 +318,7 @@ async function selectVendeur(vendeurId) {
         const data = await response.json();
         if (data.success) {
             currentVendeur = data.vendeur;
+            window.currentVendeur = currentVendeur;
             displayVendeurInfo(currentVendeur);
             
             document.querySelectorAll('#vendeurList .card').forEach(card => {
@@ -302,7 +336,7 @@ async function selectVendeur(vendeurId) {
 
 function displayVendeurInfo(vendeur) {
     const vendeurInfo = document.getElementById('vendeurInfo');
-    const noVendeurSelected = document.getElementById('novendeurSelected');
+    const noVendeurSelected = document.getElementById('noVendeurSelected');
     
     if (vendeurInfo) vendeurInfo.classList.remove('hidden');
     if (noVendeurSelected) noVendeurSelected.classList.add('hidden');
@@ -310,7 +344,16 @@ function displayVendeurInfo(vendeur) {
     document.getElementById('vendeurNom').textContent = vendeur.name || '';
     document.getElementById('vendeurPrenom').textContent = vendeur.surname || '';
     document.getElementById('vendeurEmail').textContent = vendeur.mail_pro || '';
-    document.getElementById('vendeurTelephone').textContent = 'Non renseigné';
+    document.getElementById('vendeurLogin').textContent = vendeur.login || '';
+    
+    // Récupérer les téléphones
+    const phones = [vendeur.tel1, vendeur.tel2, vendeur.tel3].filter(t => t);
+    document.getElementById('vendeurTelephone').textContent = phones.length > 0 ? phones.join(', ') : 'Non renseigné';
+    
+    const actifSpan = document.getElementById('vendeurActif');
+    if (actifSpan) {
+        actifSpan.innerHTML = vendeur.actif ? '<span style="color: green;">🟢 Actif</span>' : '<span style="color: red;">🔴 Inactif</span>';
+    }
 }
 
 function setupAdminEventListeners() {
@@ -326,16 +369,16 @@ function setupAdminEventListeners() {
         vendeurSearch.addEventListener('input', () => loadVendeurs());
     }
     
-    const showAddVendeurBtn = document.getElementById('showAddvendeurBtn');
+    const showAddVendeurBtn = document.getElementById('showAddVendeurBtn');
     if (showAddVendeurBtn) {
         showAddVendeurBtn.addEventListener('click', () => {
             alert('Fonctionnalité à implémenter');
         });
     }
     
-    const viewOrdersBtn = document.getElementById('viewOrdersBtn');
-    if (viewOrdersBtn) {
-        viewOrdersBtn.addEventListener('click', async () => {
+    const viewVendeurOrdersBtn = document.getElementById('viewVendeurOrdersBtn');
+    if (viewVendeurOrdersBtn) {
+        viewVendeurOrdersBtn.addEventListener('click', async () => {
             if (currentVendeur) {
                 await showVendeurOrders(currentVendeur.id_employee);
             } else {
@@ -344,15 +387,63 @@ function setupAdminEventListeners() {
         });
     }
     
-    const viewReservationsBtn = document.getElementById('viewReservationsBtn');
-    if (viewReservationsBtn) {
-        viewReservationsBtn.addEventListener('click', async () => {
+    const viewVendeurReservationsBtn = document.getElementById('viewVendeurReservationsBtn');
+    if (viewVendeurReservationsBtn) {
+        viewVendeurReservationsBtn.addEventListener('click', async () => {
             if (currentVendeur) {
                 await showVendeurReservations(currentVendeur.id_employee);
             } else {
                 alert('Veuillez d\'abord sélectionner un vendeur');
             }
         });
+    }
+    
+    const modifyVendeurBtn = document.getElementById('modifyVendeurBtn');
+    if (modifyVendeurBtn) {
+        modifyVendeurBtn.addEventListener('click', () => {
+            if (currentVendeur) {
+                alert(`Modification du vendeur ${currentVendeur.surname} ${currentVendeur.name} à implémenter`);
+            } else {
+                alert('Veuillez d\'abord sélectionner un vendeur');
+            }
+        });
+    }
+    
+    const deleteVendeurBtn = document.getElementById('deleteVendeurBtn');
+    if (deleteVendeurBtn) {
+        deleteVendeurBtn.addEventListener('click', async () => {
+            if (currentVendeur && confirm(`Supprimer ${currentVendeur.surname} ${currentVendeur.name} ?`)) {
+                await deleteVendeur(currentVendeur.id_employee);
+            } else if (!currentVendeur) {
+                alert('Veuillez d\'abord sélectionner un vendeur');
+            }
+        });
+    }
+}
+
+async function deleteVendeur(vendeurId) {
+    try {
+        const response = await fetch(`/api/delete/vendeurs/${vendeurId}`, {
+            credentials: "include",
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            alert('Vendeur supprimé avec succès');
+            currentVendeur = null;
+            await loadVendeurs();
+            
+            const vendeurInfo = document.getElementById('vendeurInfo');
+            const noVendeurSelected = document.getElementById('noVendeurSelected');
+            if (vendeurInfo) vendeurInfo.classList.add('hidden');
+            if (noVendeurSelected) noVendeurSelected.classList.remove('hidden');
+        } else {
+            const error = await response.json();
+            alert(`Erreur: ${error.detail || 'Erreur lors de la suppression'}`);
+        }
+    } catch (error) {
+        console.error('Erreur suppression vendeur:', error);
+        alert('Erreur réseau');
     }
 }
 
@@ -366,15 +457,23 @@ async function showVendeurOrders(vendeurId) {
         
         const modal = document.getElementById('ordersModal');
         const container = document.getElementById('ordersList');
+        const modalTitle = document.getElementById('ordersModalTitle');
+        
+        if (modalTitle) {
+            modalTitle.textContent = `📦 Commandes du vendeur`;
+        }
         
         if (container) {
             while (container.firstChild) {
                 container.removeChild(container.firstChild);
             }
             
-            if (commandes.length === 0) {
+            if (!commandes || commandes.length === 0) {
                 const emptyMessage = document.createElement('p');
                 emptyMessage.textContent = 'Aucune commande pour ce vendeur.';
+                emptyMessage.style.textAlign = 'center';
+                emptyMessage.style.padding = '40px';
+                emptyMessage.style.color = '#6c757d';
                 container.appendChild(emptyMessage);
             } else {
                 commandes.forEach(cmd => {
@@ -393,6 +492,7 @@ async function showVendeurOrders(vendeurId) {
         window.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
     } catch (error) {
         console.error('Erreur chargement commandes vendeur:', error);
+        alert('Erreur lors du chargement des commandes');
     }
 }
 
@@ -406,15 +506,23 @@ async function showVendeurReservations(vendeurId) {
         
         const modal = document.getElementById('reservationsModal');
         const container = document.getElementById('reservationsList');
+        const modalTitle = document.getElementById('reservationsModalTitle');
+        
+        if (modalTitle) {
+            modalTitle.textContent = `📅 Locations gérées par le vendeur`;
+        }
         
         if (container) {
             while (container.firstChild) {
                 container.removeChild(container.firstChild);
             }
             
-            if (reservations.length === 0) {
+            if (!reservations || reservations.length === 0) {
                 const emptyMessage = document.createElement('p');
                 emptyMessage.textContent = 'Aucune location pour ce vendeur.';
+                emptyMessage.style.textAlign = 'center';
+                emptyMessage.style.padding = '40px';
+                emptyMessage.style.color = '#6c757d';
                 container.appendChild(emptyMessage);
             } else {
                 const catalogueRes = await fetch('/api/catalogue');
@@ -437,6 +545,7 @@ async function showVendeurReservations(vendeurId) {
         window.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
     } catch (error) {
         console.error('Erreur chargement locations vendeur:', error);
+        alert('Erreur lors du chargement des locations');
     }
 }
 
@@ -448,21 +557,32 @@ function createOrderCard(cmd) {
     orderHeader.className = 'order-header';
     
     const orderIdStrong = document.createElement('strong');
-    orderIdStrong.textContent = `Commande #${cmd.id_commande}`;
+    orderIdStrong.textContent = `Commande #${cmd.id_commande || cmd.id}`;
     
     const orderDate = document.createElement('span');
     orderDate.className = 'order-date';
-    orderDate.textContent = new Date(cmd.command_date).toLocaleDateString();
+    orderDate.textContent = cmd.sale_date || cmd.command_date ? new Date(cmd.sale_date || cmd.command_date).toLocaleDateString() : 'Date inconnue';
     
     const orderType = document.createElement('span');
     orderType.className = 'order-status';
-    orderType.textContent = cmd.type_commande === 'vente' ? '💰 Vente' : '📅 Location';
+    const typeText = cmd.type_commande === 'vente' ? '💰 Vente' : (cmd.type_commande === 'location' ? '📅 Location' : (cmd.VENTE ? '💰 Vente' : '📅 Location'));
+    orderType.textContent = typeText;
     
     orderHeader.appendChild(orderIdStrong);
     orderHeader.appendChild(orderDate);
     orderHeader.appendChild(orderType);
     
     orderCard.appendChild(orderHeader);
+    
+    if (cmd.client_name || cmd.client_surname) {
+        const clientInfo = document.createElement('div');
+        clientInfo.className = 'order-client';
+        clientInfo.style.marginTop = '10px';
+        clientInfo.style.fontSize = '14px';
+        clientInfo.style.color = '#6c757d';
+        clientInfo.textContent = `Client: ${cmd.client_surname || ''} ${cmd.client_name || ''}`;
+        orderCard.appendChild(clientInfo);
+    }
     
     return orderCard;
 }
@@ -475,21 +595,50 @@ function createReservationCard(res, broom) {
     reservationHeader.className = 'reservation-header';
     
     const broomStrong = document.createElement('strong');
-    broomStrong.textContent = broom?.Libelle || `Balai #${res.id_balai}`;
+    broomStrong.textContent = broom?.Libelle || broom?.libelle || `Balai #${res.id_balai || res.broomId}`;
     
     const reservationDates = document.createElement('span');
     reservationDates.className = 'reservation-dates';
-    reservationDates.textContent = `${res.begin_date} → ${res.end_date}`;
+    reservationDates.textContent = `${res.begin_date || res.startDate} → ${res.end_date || res.endDate}`;
     
     reservationHeader.appendChild(broomStrong);
     reservationHeader.appendChild(reservationDates);
     
     const reservationStatus = document.createElement('div');
-    reservationStatus.className = 'reservation-id';
-    reservationStatus.textContent = `Statut: ${res.status}`;
+    reservationStatus.className = 'reservation-status';
+    reservationStatus.style.marginTop = '10px';
+    reservationStatus.style.fontSize = '14px';
+    reservationStatus.style.padding = '4px 12px';
+    reservationStatus.style.borderRadius = '20px';
+    reservationStatus.style.display = 'inline-block';
+    
+    const status = res.status || 'En cours';
+    if (status === 'Pending') {
+        reservationStatus.style.backgroundColor = '#f39c12';
+        reservationStatus.textContent = ' En attente';
+    } else if (status === 'Confirmed') {
+        reservationStatus.style.backgroundColor = '#27ae60';
+        reservationStatus.textContent = ' Confirmée';
+    } else if (status === 'Finished') {
+        reservationStatus.style.backgroundColor = '#95a5a6';
+        reservationStatus.textContent = ' Terminée';
+    } else {
+        reservationStatus.style.backgroundColor = '#3498db';
+        reservationStatus.textContent = `📌 ${status}`;
+    }
     
     reservationCard.appendChild(reservationHeader);
     reservationCard.appendChild(reservationStatus);
+    
+    if (res.client_name || res.client_surname) {
+        const clientInfo = document.createElement('div');
+        clientInfo.className = 'reservation-client';
+        clientInfo.style.marginTop = '10px';
+        clientInfo.style.fontSize = '12px';
+        clientInfo.style.color = '#6c757d';
+        clientInfo.textContent = `Client: ${res.client_surname || ''} ${res.client_name || ''}`;
+        reservationCard.appendChild(clientInfo);
+    }
     
     return reservationCard;
 }

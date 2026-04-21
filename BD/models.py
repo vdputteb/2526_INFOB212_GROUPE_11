@@ -1,45 +1,312 @@
-from typing import Optional
-from datetime import datetime
+from typing import Optional, List
+from datetime import date, datetime
+from enum import Enum
+from pydantic import BaseModel, Field, field_validator
 
-from pydantic import BaseModel
-from sqlmodel import SQLModel, Field
 
+# --- Enums pour les valeurs contraintes ---
+class BalaiStatus(str, Enum):
+    IN_LOCATION = "in location"
+    IN_STOCK = "in stock"
+    ARRIVING = "arriving"
 
-class Employee(SQLModel, table=True):
+class CommandeFournisseurStatus(str, Enum):
+    PENDING_APPROVAL = "Pending Approuval"
+    PENDING = "Pending"
+    PROCESSING = "Processing"
+    IN_TRANSIT = "In transit"
+    CANCELLED = "Cancelled"
+
+class LocationStatus(str, Enum):
+    IN_PROGRESS = "in Progress"
+    FINISHED = "Finished"
+    PENDING = "Pending"
+
+# --- Modèles existants ---
+class Employee(BaseModel):
     """
-    Model of the employee Player table in the database.
+    Model of the EMPLOYEE table in the database.
     """
     __tablename__ = "EMPLOYEE"
-    id : int = Field(primary_key=True)
-    username : str
-    password : str
-    actif : bool
-    name : str
-    surname : str
-    mail : str
-    phone: str = Field(default="")
-    is_admin : bool
-    id_admin : Optional[int] = None
+    id_employee: Optional[int] = None
+    username: str  # login
+    password: str
+    actif: bool = True
+    name: str
+    surname: str
+    mail: str  # mail_pro
+    phone: List[str] = Field(default_factory=list)  # tel1, tel2, tel3
+    is_admin: bool = False  # is_patron
+    id_patron: Optional[int] = None  # id_admin
+
+    @field_validator('phone')
+    @classmethod
+    def validate_phone(cls, v: List[str]) -> List[str]:
+        if len(v) > 3:
+            raise ValueError('Maximum 3 phone numbers allowed')
+        return v
 
 
-#todo
-class Client(SQLModel, table=True):
+# --- Modèles pour les CLIENTS (Sorciers et Moldus) ---
+
+class SorcierDetails(BaseModel):
+    """Détails spécifiques aux sorciers"""
+    wizard_registry_number: int
+    chimney: str
+    add_school_name: str
+    add_house: str
+    add_country: str = "United Kingdom"
+    flight_licence: int = Field(ge=0, le=5)
+    owls: List[str] = Field(default_factory=list)  # Owls_number1,2,3
+
+
+class Address(BaseModel):
+    """Adresse pour les moldus"""
+    street: str
+    city: str
+    house_number: str
+    country: str = "United Kingdom"
+
+
+class MolduDetails(BaseModel):
+    """Détails spécifiques aux moldus"""
+    national_register_number: int
+    mail: str  # Email du moldu
+    address: Address
+    telephones: List[str] = Field(default_factory=list)  # tel1, tel2, tel3
+
+
+class Client(BaseModel):
     """
-    Model of the employee Player table in the database.
+    Model of the CLIENT table in the database.
     """
     __tablename__ = "CLIENT"
-    id : int = Field(primary_key=True)
-    name : str
-    surname : str
-    mail : str
-    birthdate : datetime
-    money : int
+    id_client: Optional[int] = None
+    name: str
+    surname: str
+    birth_date: date
+    money: float = Field(ge=0)
+    id_employee: Optional[int] = None  # Employee qui a créé/enregistré le client
+    type_client: str  # 'sorcier' ou 'moldu'
+    telephones: List[str] = Field(default_factory=list)
+    
+    # Champs conditionnels selon le type
+    sorcier: Optional[SorcierDetails] = None
+    moldu: Optional[MolduDetails] = None
+    
+    @field_validator('type_client')
+    @classmethod
+    def validate_type_client(cls, v: str) -> str:
+        if v not in ['sorcier', 'moldu']:
+            raise ValueError('type_client must be "sorcier" or "moldu"')
+        return v
+    
+    @field_validator('birth_date')
+    @classmethod
+    def validate_birth_date(cls, v: date) -> date:
+        if v > date.today():
+            raise ValueError('Birth date cannot be in the future')
+        return v
+
+
+# --- Modèles pour les BALAIS ---
+
+class Fabricant(BaseModel):
+    """Modèle FABRICANT"""
+    __tablename__ = "FABRICANT"
+    id_fabricant: Optional[int] = None
+    name: str
+    mail: str
+
+
+class Detail(BaseModel):
+    """Modèle DETAIL (prix unitaire)"""
+    __tablename__ = "DETAIL"
+    id_detail: Optional[int] = None
+    price: float = Field(ge=0)
+
+
+class BalaiMagique(BaseModel):
+    """Modèle BALAI_MAGIQUE"""
+    __tablename__ = "BALAI_MAGIQUE"
+    id_balai: int
+    flight_licence_required: int = Field(ge=1, le=5)
+    speed: int = Field(gt=0)
+    magic_component: str
+
+
+class Balai(BaseModel):
+    """
+    Model of the BALAI table in the database.
+    """
+    __tablename__ = "BALAI"
+    id_balai: Optional[int] = None
+    libelle: str
+    description: str
+    img: str
+    uses_number: int = Field(ge=0)
+    sale_price: float = Field(ge=0)
+    location_price: float = Field(ge=0)
+    wear: int = Field(ge=0, le=100)
+    status: BalaiStatus = BalaiStatus.IN_STOCK
+    id_detail: int
+    id_fabricant: int
+    balai_magique_id: Optional[int] = None  # Pour la relation 1-1
+    
+    # Champs optionnels pour les jointures
+    fabricant_name: Optional[str] = None
+    magique_details: Optional[BalaiMagique] = None
+
+
+# --- Modèles pour les RÉSERVATIONS (LOCATIONS) ---
 
 class Reservation(BaseModel):
+    """
+    Model for creating/reading reservations (LOCATIONS)
+    """
     broomId: int
-    startDate: str
-    endDate: str
-    userId: str
+    startDate: str  # Format: YYYY-MM-DD
+    endDate: str    # Format: YYYY-MM-DD
+    userId: Optional[str] = None  # ID de l'utilisateur connecté
+    
+    @field_validator('startDate', 'endDate')
+    @classmethod
+    def validate_date_format(cls, v: str) -> str:
+        try:
+            datetime.strptime(v, '%Y-%m-%d')
+        except ValueError:
+            raise ValueError('Date must be in YYYY-MM-DD format')
+        return v
+    
+    @field_validator('endDate')
+    @classmethod
+    def validate_dates(cls, v: str, info) -> str:
+        start = info.data.get('startDate')
+        if start and v < start:
+            raise ValueError('endDate must be after startDate')
+        return v
 
 
-#todo
+class Location(BaseModel):
+    """
+    Model of the LOCATION table
+    """
+    __tablename__ = "LOCATION"
+    id_commande: int
+    begin_date: date
+    end_date: date
+    actual_end_date: Optional[date] = None
+    status: LocationStatus = LocationStatus.PENDING
+    
+    # Jointure
+    client_name: Optional[str] = None
+    client_surname: Optional[str] = None
+    broom_name: Optional[str] = None
+
+
+# --- Modèles pour les COMMANDES ---
+
+class Vente(BaseModel):
+    """
+    Model of the VENTE table
+    """
+    __tablename__ = "VENTE"
+    id_commande: int
+    sale_date: date
+
+
+class Commande(BaseModel):
+    """
+    Model of the COMMANDE table
+    """
+    __tablename__ = "COMMANDE"
+    id_commande: Optional[int] = None
+    id_employee: int
+    id_client: int
+    vente_id: Optional[int] = None  # Si c'est une vente
+    location_id: Optional[int] = None  # Si c'est une location
+    
+    # Jointure
+    client_name: Optional[str] = None
+    client_surname: Optional[str] = None
+    employee_name: Optional[str] = None
+    employee_surname: Optional[str] = None
+    sale_date: Optional[date] = None
+    location_status: Optional[str] = None
+    broom_name: Optional[str] = None
+
+
+class CommandeFournisseur(BaseModel):
+    """
+    Model of the COMMANDE_FOURNISSEUR table (commandes aux fabricants)
+    """
+    __tablename__ = "COMMANDE_FOURNISSEUR"
+    id_commande: Optional[int] = None
+    status: CommandeFournisseurStatus = CommandeFournisseurStatus.PENDING
+    command_date: Optional[date] = None
+    expected_delivery_date: Optional[date] = None
+    actual_delivery_date: Optional[date] = None
+    id_vendeur: int  # Employee qui passe la commande
+    id_patron: int   # Patron qui approuve
+
+
+# --- Modèles pour les requêtes API ---
+
+class LoginRequest(BaseModel):
+    """Requête de connexion"""
+    username: str
+    mail: str
+    password: str
+    is_admin: bool = False
+
+
+class RegisterEmployeeRequest(BaseModel):
+    """Requête d'inscription d'employé"""
+    username: str
+    password: str
+    name: str
+    surname: str
+    mail: str
+    phone: List[str] = Field(default_factory=list)
+    is_admin: bool = False
+
+
+class SelectClientRequest(BaseModel):
+    """Requête pour sélectionner un client"""
+    client_id: int
+
+
+class SelectVendeurRequest(BaseModel):
+    """Requête pour sélectionner un vendeur"""
+    vendeurs_id: int
+
+
+class CreateCommandeRequest(BaseModel):
+    """Requête pour créer une commande d'achat"""
+    employee_id: int
+    client_id: int
+    sale_date: str  # YYYY-MM-DD
+    broom_ids: List[int]
+    
+    @field_validator('sale_date')
+    @classmethod
+    def validate_sale_date(cls, v: str) -> str:
+        try:
+            datetime.strptime(v, '%Y-%m-%d')
+        except ValueError:
+            raise ValueError('sale_date must be in YYYY-MM-DD format')
+        return v
+
+
+class CheckAvailabilityRequest(BaseModel):
+    """Requête pour vérifier la disponibilité d'un balai"""
+    broom_id: int
+    start_date: str
+    end_date: str
+
+
+class ApiResponse(BaseModel):
+    """Réponse API standard"""
+    success: bool
+    message: str
+    data: Optional[dict] = None

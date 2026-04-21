@@ -625,3 +625,76 @@ select:focus {
 .phone .moldu-badge {
     color: #3498db;
 }
+
+/* Message d'erreur inline */
+.error-message {
+    color: #e74c3c;
+    font-size: 12px;
+    margin-top: 5px;
+    display: block;
+    animation: fadeInError 0.3s ease;
+}
+
+@keyframes fadeInError {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Bordure d'erreur sur les champs */
+.error-border {
+    border-color: #e74c3c !important;
+    background-color: #fff8f8 !important;
+}
+
+.error-border:focus {
+    border-color: #e74c3c !important;
+    box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.1) !important;
+}
+
+/* Indicateur de succès pour les champs valides */
+.valid-border {
+    border-color: #27ae60 !important;
+}
+
+.valid-border:focus {
+    border-color: #27ae60 !important;
+    box-shadow: 0 0 0 3px rgba(39, 174, 96, 0.1) !important;
+}
+
+/* Style pour le hint de validation */
+.validation-hint {
+    font-size: 11px;
+    color: #95a5a6;
+    margin-top: 4px;
+    display: block;
+}
+
+.validation-hint.valid {
+    color: #27ae60;
+}
+
+.validation-hint.invalid {
+    color: #e74c3c;
+}
+
+/* Conteneur relatif pour les champs */
+.form-group {
+    position: relative;
+}
+
+/* Animation de shake pour erreur (optionnel) */
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+    20%, 40%, 60%, 80% { transform: translateX(2px); }
+}
+
+.error-shake {
+    animation: shake 0.3s ease;
+}
