@@ -14,24 +14,24 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById("vendeur_name").innerText = sessionStorage.getItem("username") || "Vendeur";
     
     let role = sessionStorage.getItem("role");
-    console.log("Rôle détecté:", role);
     
     const adminVue = document.getElementById("admin-vue");
     const vendeurVue = document.getElementById("vendeur-vue");
     
     if (role && role.toLowerCase() === "admin") {
         if (adminVue) adminVue.style.display = "block";
-        if (vendeurVue) vendeurVue.style.display = "none";
+        if (vendeurVue) vendeurVue.style.display = "block";
         loadVendeurs();
         setupAdminEventListeners();
     } else {
         if (adminVue) adminVue.style.display = "none";
         if (vendeurVue) vendeurVue.style.display = "block";
-        loadClients();
-        setupVendeurEventListeners();
-        AddClient();
-        setupModifyClient();
     }
+    loadClients();
+    setupVendeurEventListeners();
+    AddClient();
+    setupModifyClient();
+    
 });
 
 async function loadClients() {
@@ -102,7 +102,7 @@ function displayClients(clients) {
         card.appendChild(typeDiv);
         
         card.addEventListener('click', () => selectClient(parseInt(card.dataset.clientId)));
-        
+        window.selectClient = selectClient;
         container.appendChild(card);
     });
 }
@@ -148,45 +148,44 @@ function displayClientInfo(client) {
     document.getElementById('clientNom').textContent = client.name || '';
     document.getElementById('clientPrenom').textContent = client.surname || '';
     document.getElementById('clientBirthDate').textContent = client.birth_date || 'Non renseigné';
-    document.getElementById('clientType').innerHTML = client.type_client === 'sorcier' ? '🧙 Sorcier' : '🏠 Moldu';
+    document.getElementById('clientType').innerHTML = client.SORCIER != null ? '🧙 Sorcier' : '🏠 Moldu';
     document.getElementById('clientMoney').textContent = client.money ? parseFloat(client.money).toFixed(2) : '0.00';
     
     // Afficher les détails spécifiques
-    if (client.type_client === 'sorcier' && client.sorcier) {
+    if (client.SORCIER != null) {
         sorcierDetails.style.display = 'block';
         molduDetails.style.display = 'none';
         
-        document.getElementById('clientEmail').textContent = client.sorcier.chimney || 'Non renseigné';
-        document.getElementById('clientAdresse').textContent = `${client.sorcier.add_house || ''}, ${client.sorcier.add_school_name || ''}, ${client.sorcier.add_country || ''}`;
+        document.getElementById('clientEmail').textContent = client.sorcier.Chimney || 'Non renseigné';
+        document.getElementById('clientAdresse').textContent = `${client.sorcier.Add_House || ''}, ${client.sorcier.Add_School_name || ''}, ${client.sorcier.Add_Country || ''}`;
         
-        document.getElementById('sorcierRegistry').textContent = client.sorcier.wizard_registry_number || 'Non renseigné';
-        document.getElementById('sorcierChimney').textContent = client.sorcier.chimney || 'Non renseigné';
-        document.getElementById('sorcierSchool').textContent = client.sorcier.add_school_name || 'Non renseigné';
-        document.getElementById('sorcierHouse').textContent = client.sorcier.add_house || 'Non renseigné';
-        document.getElementById('sorcierCountry').textContent = client.sorcier.add_country || 'Non renseigné';
-        document.getElementById('sorcierFlightLicence').textContent = client.sorcier.flight_licence || '0';
+        document.getElementById('sorcierRegistry').textContent = client.sorcier.Wizard_registry_number || 'Non renseigné';
+        document.getElementById('sorcierChimney').textContent = client.sorcier.Chimney || 'Non renseigné';
+        document.getElementById('sorcierSchool').textContent = client.sorcier.Add_School_name || 'Non renseigné';
+        document.getElementById('sorcierHouse').textContent = client.sorcier.Add_House || 'Non renseigné';
+        document.getElementById('sorcierCountry').textContent = client.sorcier.Add_Country || 'Non renseigné';
+        document.getElementById('sorcierFlightLicence').textContent = client.sorcier.Flight_licence || '0';
         
         const owls = client.sorcier.owls || [];
-        document.getElementById('sorcierOwls').textContent = owls.length > 0 ? owls.join(', ') : 'Aucun';
+        document.getElementById('clientTelephone').textContent = owls.length > 0 ? owls.join(', ') : 'Aucun';
         
-    } else if (client.moldu) {
+    } else if (client.MOLDU != null) {
         sorcierDetails.style.display = 'none';
         molduDetails.style.display = 'block';
         
-        document.getElementById('clientEmail').textContent = client.moldu.mail || 'Non renseigné';
+        document.getElementById('clientEmail').textContent = client.moldu.Mail || 'Non renseigné';
         
-        const address = client.moldu.address || {};
-        document.getElementById('clientAdresse').textContent = `${address.house_number || ''} ${address.street || ''}, ${address.city || ''}, ${address.country || ''}`;
+        document.getElementById('clientAdresse').textContent = `${client.moldu.Add_House_number || ''} ${client.moldu.Add_Street || ''}, ${client.moldu.Add_City || ''}, ${client.moldu.Add_Country || ''}`;
         
-        document.getElementById('molduNationalRegister').textContent = client.moldu.national_register_number || 'Non renseigné';
-        document.getElementById('molduStreet').textContent = address.street || 'Non renseigné';
-        document.getElementById('molduCity').textContent = address.city || 'Non renseigné';
-        document.getElementById('molduHouseNumber').textContent = address.house_number || 'Non renseigné';
-        document.getElementById('molduCountry').textContent = address.country || 'Non renseigné';
+        document.getElementById('molduNationalRegister').textContent = client.moldu.National_register_number || 'Non renseigné';
+        document.getElementById('molduStreet').textContent = client.moldu.Add_Street || 'Non renseigné';
+        document.getElementById('molduCity').textContent = client.moldu.Add_City || 'Non renseigné';
+        document.getElementById('molduHouseNumber').textContent = client.moldu.Add_House_number || 'Non renseigné';
+        document.getElementById('molduCountry').textContent = client.moldu.Add_Country || 'Non renseigné';
+
+        const telephones = client.telephones || [];
+        document.getElementById('clientTelephone').textContent = telephones.length > 0 ? telephones.join(', ') : 'Non renseigné';
     }
-    
-    const telephones = client.telephones || [];
-    document.getElementById('clientTelephone').textContent = telephones.length > 0 ? telephones.join(', ') : 'Non renseigné';
 }
 
 function setupVendeurEventListeners() {

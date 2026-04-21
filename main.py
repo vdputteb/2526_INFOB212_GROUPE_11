@@ -317,50 +317,63 @@ async def select_client(request: Request, select_data: SelectClientRequest):
 
 
 @app.put("/api/modify/client")
-async def modify_client(client_data: dict):
+async def modify_client(request : Request, client_data: dict):
     """Modifie un client existant"""
-    client = Client(
-        id_client=client_data.get("id_client"),
-        name=client_data.get("name"),
-        surname=client_data.get("surname"),
-        birth_date=date.fromisoformat(client_data.get("birth_date")),
-        money=client_data.get("money", 0),
-        type_client=client_data.get("type_client"),
-        telephones=client_data.get("telephones", [])
-    )
-    
-    # Ajouter les détails spécifiques
-    if client.type_client == "sorcier" and client_data.get("sorcier"):
-        sorcier_data = client_data["sorcier"]
-        client.sorcier = SorcierDetails(
-            wizard_registry_number=sorcier_data["wizard_registry_number"],
-            chimney=sorcier_data["chimney"],
-            add_school_name=sorcier_data["add_school_name"],
-            add_house=sorcier_data["add_house"],
-            add_country=sorcier_data.get("add_country", "United Kingdom"),
-            flight_licence=sorcier_data.get("flight_licence", 0),
-            owls=sorcier_data.get("owls", [])
+    try:
+        # Récupérer le client existant
+        existing_client = dao.get_client_by_id(client_data.get("id_client"))
+        if not existing_client:
+            raise HTTPException(status_code=404, detail="Client not found")
+        
+        # Créer l'objet Client avec toutes les informations
+        client = Client(
+            id_client=client_data.get("id_client"),
+            name=client_data.get("name"),
+            surname=client_data.get("surname"),
+            birth_date=date.fromisoformat(client_data.get("birth_date")),
+            money=client_data.get("money", 0),
+            type_client=client_data.get("type_client"),
+            telephones=client_data.get("telephones", []),
+            id_employee=request.state.user_id
         )
-    
-    elif client.type_client == "moldu" and client_data.get("moldu"):
-        moldu_data = client_data["moldu"]
-        client.moldu = MolduDetails(
-            national_register_number=moldu_data["national_register_number"],
-            mail=moldu_data["mail"],
-            address=Address(
-                street=moldu_data["add_street"],
-                city=moldu_data["add_city"],
-                house_number=moldu_data["add_house_number"],
-                country=moldu_data.get("add_country", "United Kingdom")
-            ),
-            telephones=client.telephones
-        )
-    
-    success = dao.modify_client(client)
-    if not success:
-        raise HTTPException(status_code=404, detail="Client not found")
-    
-    return JSONResponse({"success": True, "message": f"Client {client.name} modified successfully"})
+        
+        # Ajouter les détails spécifiques
+        if client.type_client == "sorcier" and client_data.get("sorcier"):
+            sorcier_data = client_data["sorcier"]
+            client.sorcier = SorcierDetails(
+                wizard_registry_number=sorcier_data.get("wizard_registry_number"),
+                chimney=sorcier_data.get("chimney"),
+                add_school_name=sorcier_data.get("add_school_name"),
+                add_house=sorcier_data.get("add_house"),
+                add_country=sorcier_data.get("add_country", "United Kingdom"),
+                flight_licence=sorcier_data.get("flight_licence", 0),
+                owls=sorcier_data.get("owls", [])
+            )
+            client.is_sorcier = True
+        
+        elif client.type_client == "moldu" and client_data.get("moldu"):
+            moldu_data = client_data["moldu"]
+            client.moldu = MolduDetails(
+                national_register_number=moldu_data.get("national_register_number"),
+                mail=moldu_data.get("mail"),
+                address=Address(
+                    street=moldu_data.get("add_street"),
+                    city=moldu_data.get("add_city"),
+                    house_number=moldu_data.get("add_house_number"),
+                    country=moldu_data.get("add_country", "United Kingdom")
+                ),
+                telephones=client.telephones
+            )
+            client.is_sorcier = False
+        
+        success = dao.modify_client(client)
+        if not success:
+            raise HTTPException(status_code=404, detail="Failed to modify client")
+        
+        return JSONResponse({"success": True, "message": f"Client {client.name} modified successfully"})
+    except Exception as e:
+        print(f"Erreur modification client: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.delete("/api/delete/client/{client_id}")

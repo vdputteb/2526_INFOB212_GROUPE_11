@@ -21,7 +21,7 @@ function createModifyModal() {
     closeSpan.textContent = '×';
     
     const title = document.createElement('h3');
-    title.textContent = '✏️ Modifier le client';
+    title.textContent = 'Modifier le client';
     
     const form = document.createElement('form');
     form.id = 'modifyClientForm';
