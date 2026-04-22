@@ -102,7 +102,7 @@
                                 <p><strong>Pays :</strong> <span id="molduCountry"></span></p>
                             </div>
                             
-                            <div class="actions">
+                            <div class="actions" id="vendeur-action">
                                 <button id="viewCatalogueBtn" class="btn-action">🛍️ Voir le catalogue</button>
                                 <button id="viewOrdersBtn" class="btn-action">📦 Commandes</button>
                                 <button id="viewReservationsBtn" class="btn-action">📅 Locations</button>
@@ -216,6 +216,151 @@
                 <input type="number" id="newClientMoney" step="0.01" value="0">
             </div>
             <button type="submit" class="btn-submit">Créer le client</button>
+        </form>
+    </div>
+</div>
+
+<!-- Modal de modification client -->
+<div id="modifyClientModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>✏️ Modifier le client</h2>
+            <span class="close-modal">&times;</span>
+        </div>
+        
+        <form id="modifyClientForm">
+            <!-- Type de client (lecture seule car ne peut pas être modifié) -->
+            <div class="form-group">
+                <label for="modifyClientTypeDisplay">Type de client :</label>
+                <div id="modifyClientTypeDisplay" class="client-type-display"></div>
+            </div>
+            
+            <!-- Informations générales -->
+            <h3>📋 Informations générales</h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="modifyClientNom">Nom *</label>
+                    <input type="text" id="modifyClientNom" name="nom" required>
+                </div>
+                <div class="form-group">
+                    <label for="modifyClientPrenom">Prénom *</label>
+                    <input type="text" id="modifyClientPrenom" name="prenom" required>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="modifyClientBirthDate">Date de naissance *</label>
+                    <input type="date" id="modifyClientBirthDate" name="birthDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="modifyClientMoney">Argent (€)</label>
+                    <input type="number" id="modifyClientMoney" name="money" step="0.01" value="0">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="modifyClientPhones">Téléphones (séparés par des virgules)</label>
+                <input type="text" id="modifyClientPhones" name="telephones" placeholder="+33123456789, +33987654321">
+                <small>Format: +33XXXXXXXXX ou 0XXXXXXXXX</small>
+            </div>
+            
+            <!-- Champs Sorcier - ID unique pour le modal de modification -->
+            <div id="modifySorcierFieldsSection" style="display: none;">
+                <h3>🏰 Informations Sorcier</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="modifySorcierRegistry">Numéro de registre *</label>
+                        <input type="number" id="modifySorcierRegistry" name="wizardRegistry">
+                        <small>Numéro unique d'enregistrement au ministère de la magie</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="modifySorcierChimney">Cheminée *</label>
+                        <input type="text" id="modifySorcierChimney" name="chimney" placeholder="Cheminée de Poudlard">
+                        <small>Adresse de cheminée pour le réseau de flu</small>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="modifySorcierSchool">Nom de l'école *</label>
+                        <input type="text" id="modifySorcierSchool" name="schoolName" placeholder="Poudlard">
+                        <small>École de sorcellerie fréquentée</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="modifySorcierHouse">Maison *</label>
+                        <input type="text" id="modifySorcierHouse" name="house" placeholder="Gryffondor">
+                        <small>Maison à Poudlard (Gryffondor, Serdaigle, Poufsouffle, Serpentard)</small>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="modifySorcierCountry">Pays</label>
+                        <input type="text" id="modifySorcierCountry" name="country" value="United Kingdom">
+                        <small>Pays de résidence</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="modifySorcierFlightLicence">Permis de vol (0-5)</label>
+                        <input type="number" id="modifySorcierFlightLicence" name="flightLicence" min="0" max="5" value="0">
+                        <small>Niveau de permis de vol sur balai (0 = pas de permis, 5 = expert)</small>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="modifySorcierOwls">Hiboux (séparés par des virgules)</label>
+                    <input type="text" id="modifySorcierOwls" name="owls" placeholder="Hedwige, Errol, Pigwidgeon">
+                    <small>Noms des hiboux appartenant au sorcier</small>
+                </div>
+            </div>
+            
+            <!-- Champs Moldu - ID unique pour le modal de modification -->
+            <div id="modifyMolduFieldsSection" style="display: none;">
+                <h3>🏠 Informations Moldu</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="modifyMolduNationalRegister">Numéro de registre national *</label>
+                        <input type="text" id="modifyMolduNationalRegister" name="nationalRegister" placeholder="123456789">
+                        <small>Numéro d'enregistrement national (ex: numéro de sécurité sociale)</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="modifyMolduMail">Email *</label>
+                        <input type="email" id="modifyMolduMail" name="email" placeholder="client@example.com">
+                        <small>Adresse email valide</small>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="modifyMolduStreet">Rue *</label>
+                        <input type="text" id="modifyMolduStreet" name="street" placeholder="rue de la Paix">
+                        <small>Nom de la rue</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="modifyMolduCity">Ville *</label>
+                        <input type="text" id="modifyMolduCity" name="city" placeholder="Paris">
+                        <small>Ville de résidence</small>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="modifyMolduHouseNumber">Numéro de maison</label>
+                        <input type="text" id="modifyMolduHouseNumber" name="houseNumber" placeholder="12 ou 12bis">
+                        <small>Numéro dans la rue (peut contenir des lettres)</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="modifyMolduCountry">Pays *</label>
+                        <input type="text" id="modifyMolduCountry" name="countryMoldu" value="France">
+                        <small>Pays de résidence</small>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-buttons">
+                <button type="submit" class="btn-save">💾 Enregistrer les modifications</button>
+                <button type="button" class="btn-cancel" id="cancelModifyBtn">❌ Annuler</button>
+            </div>
         </form>
     </div>
 </div>

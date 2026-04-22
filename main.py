@@ -332,9 +332,8 @@ async def modify_client(request : Request, client_data: dict):
             surname=client_data.get("surname"),
             birth_date=date.fromisoformat(client_data.get("birth_date")),
             money=client_data.get("money", 0),
-            type_client=client_data.get("type_client"),
-            telephones=client_data.get("telephones", []),
-            id_employee=request.state.user_id
+            id_employee= request.state.user_id,
+            type_client=client_data.get('type_client')
         )
         
         # Ajouter les détails spécifiques
@@ -345,11 +344,10 @@ async def modify_client(request : Request, client_data: dict):
                 chimney=sorcier_data.get("chimney"),
                 add_school_name=sorcier_data.get("add_school_name"),
                 add_house=sorcier_data.get("add_house"),
-                add_country=sorcier_data.get("add_country", "United Kingdom"),
+                add_country=sorcier_data.get("add_country"),
                 flight_licence=sorcier_data.get("flight_licence", 0),
                 owls=sorcier_data.get("owls", [])
             )
-            client.is_sorcier = True
         
         elif client.type_client == "moldu" and client_data.get("moldu"):
             moldu_data = client_data["moldu"]
@@ -360,11 +358,10 @@ async def modify_client(request : Request, client_data: dict):
                     street=moldu_data.get("add_street"),
                     city=moldu_data.get("add_city"),
                     house_number=moldu_data.get("add_house_number"),
-                    country=moldu_data.get("add_country", "United Kingdom")
+                    country=moldu_data.get("add_country"),
+                    telephones=moldu_data.get("telephones",[])
                 ),
-                telephones=client.telephones
             )
-            client.is_sorcier = False
         
         success = dao.modify_client(client)
         if not success:

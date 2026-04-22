@@ -20,7 +20,6 @@ export function AddClient() {
     
     if (!modal || !showBtn || !closeBtn || !form) return;
     
-    // ========== FONCTION POUR OBTENIR LES RÉFÉRENCES FRAÎCHES ==========
     function getFields() {
         return {
             nom: document.getElementById('newClientNom'),
@@ -46,7 +45,6 @@ export function AddClient() {
         };
     }
     
-    // ========== VALIDATION D'UN CHAMP INDIVIDUEL ==========
     function validateSingleField(field, regexPattern, fieldName, required, customMessage = null) {
         if (!field) return true;
         
@@ -66,7 +64,6 @@ export function AddClient() {
         }
     }
     
-    // ========== VALIDATION SPÉCIFIQUE POUR LA DATE (ÂGE) ==========
     function validateDateField(field) {
         if (!field) return true;
         
@@ -88,7 +85,6 @@ export function AddClient() {
         return true;
     }
     
-    // ========== VALIDATION SPÉCIFIQUE POUR LES TÉLÉPHONES ==========
     function validateTelephonesField(field) {
         if (!field) return true;
         
@@ -108,7 +104,6 @@ export function AddClient() {
         }
     }
     
-    // ========== VALIDATION SPÉCIFIQUE POUR L'ARGENT ==========
     function validateMoneyField(field) {
         if (!field) return true;
         
@@ -128,7 +123,6 @@ export function AddClient() {
         }
     }
     
-    // ========== VALIDATION SPÉCIFIQUE POUR LE PERMIS DE VOL ==========
     function validateLicenceField(field) {
         if (!field) return true;
         
@@ -148,7 +142,6 @@ export function AddClient() {
         }
     }
     
-    // ========== VALIDATION SPÉCIFIQUE POUR LES HIBOUX ==========
     function validateOwlsField(field) {
         if (!field) return true;
         
@@ -168,7 +161,7 @@ export function AddClient() {
         }
     }
     
-    // ========== VALIDATION SPÉCIFIQUE POUR LE NUMÉRO DE MAISON ==========
+
     function validateHouseNumberField(field) {
         if (!field) return true;
         
@@ -188,7 +181,6 @@ export function AddClient() {
         }
     }
     
-    // ========== ATTACHER LES ÉVÉNEMENTS DE VALIDATION EN TEMPS RÉEL ==========
     function attachRealtimeValidations() {
         const fields = getFields();
         
@@ -344,7 +336,7 @@ export function AddClient() {
         }
     }
     
-    // ========== NETTOYER LES MESSAGES D'ERREUR ==========
+
     function clearAllErrors() {
         document.querySelectorAll('.error-message').forEach(msg => msg.remove());
         document.querySelectorAll('.error-border, .valid-border').forEach(field => {
@@ -352,7 +344,7 @@ export function AddClient() {
         });
     }
     
-    // ========== GESTION DE L'AFFICHAGE DES CHAMPS ==========
+
     function toggleFields() {
         const isSorcier = clientTypeSelect.value === 'sorcier';
         const sorcierFields = document.getElementById('sorcierFields');
@@ -398,7 +390,6 @@ export function AddClient() {
         clearAllErrors();
     }
     
-    // ========== VALIDATION COMPLÈTE AVANT SOUMISSION ==========
     function validateFormBeforeSubmit() {
         const fields = getFields();
         const isSorcier = clientTypeSelect.value === 'sorcier';
@@ -497,7 +488,6 @@ export function AddClient() {
         return isValid;
     }
     
-    // ========== RÉINITIALISATION COMPLÈTE DU FORMULAIRE ==========
     function resetForm() {
         const form = document.getElementById('addClientForm');
         if (form) form.reset();
@@ -509,7 +499,6 @@ export function AddClient() {
         toggleFields();
     }
     
-    // ========== ATTACHER LES ÉVÉNEMENTS ==========
     
     // Ré-attacher les validations à chaque ouverture (pour être sûr)
     showBtn.addEventListener('click', () => {

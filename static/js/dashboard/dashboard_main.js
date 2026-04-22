@@ -1,7 +1,7 @@
 import {showOrders} from './show_commands.js';
 import {showReservations} from './show_reservations.js';
 import {AddClient} from './add_client.js';
-import {setupModifyClient} from './modify_client.js';
+import {setupModifyClient, addDeleteClientButton, addModifyClientButton} from './modify_client.js';
 
 let currentClient = null;
 let currentVendeur = null;
@@ -11,6 +11,13 @@ window.loadClients = loadClients;
 window.displayClientInfo = displayClientInfo;
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Définir d'abord les variables globales nécessaires
+    window.currentClient = currentClient;
+    window.currentVendeur = currentVendeur;
+    window.loadClients = loadClients;
+    window.displayClientInfo = displayClientInfo;
+    window.selectClient = selectClient;
+    
     document.getElementById("vendeur_name").innerText = sessionStorage.getItem("username") || "Vendeur";
     
     let role = sessionStorage.getItem("role");
@@ -27,11 +34,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (adminVue) adminVue.style.display = "none";
         if (vendeurVue) vendeurVue.style.display = "block";
     }
-    loadClients();
-    setupVendeurEventListeners();
-    AddClient();
-    setupModifyClient();
     
+    // Charger les clients en premier
+    loadClients().then(() => {
+        // Une fois les clients chargés, configurer le reste
+        setupVendeurEventListeners();
+        AddClient();
+        
+        setupModifyClient();
+        addModifyClientButton();
+        addDeleteClientButton();
+    });
 });
 
 async function loadClients() {
@@ -46,7 +59,7 @@ async function loadClients() {
         
         if (!response.ok) {
             console.error('Erreur chargement clients:', response.status);
-            return;
+            return [];
         }
         
         const data = await response.json();
@@ -54,8 +67,10 @@ async function loadClients() {
             displayClients(data.clients);
             return data.clients;
         }
+        return [];
     } catch (error) {
         console.error('Erreur chargement clients:', error);
+        return [];
     }
 }
 
@@ -72,9 +87,8 @@ function displayClients(clients) {
         (c.sorcier?.chimney?.toLowerCase().includes(searchTerm))
     );
     
-    while (container.firstChild) {
-        container.removeChild(container.firstChild);
-    }
+    // Vider le container efficacement
+    container.innerHTML = '';
     
     filtered.forEach(client => {
         const card = document.createElement('div');
@@ -95,14 +109,13 @@ function displayClients(clients) {
         
         const typeDiv = document.createElement('div');
         typeDiv.className = 'phone';
-        typeDiv.textContent = client.type_client === 'sorcier' ? '🧙 Sorcier' : '🏠 Moldu';
+        typeDiv.textContent = client.SORCIER != null ? '🧙 Sorcier' : '🏠 Moldu';
         
         card.appendChild(nameDiv);
         card.appendChild(emailDiv);
         card.appendChild(typeDiv);
         
         card.addEventListener('click', () => selectClient(parseInt(card.dataset.clientId)));
-        window.selectClient = selectClient;
         container.appendChild(card);
     });
 }
@@ -141,50 +154,74 @@ function displayClientInfo(client) {
     const sorcierDetails = document.getElementById('sorcierDetails');
     const molduDetails = document.getElementById('molduDetails');
     
-    if (clientInfo) clientInfo.classList.remove('hidden');
-    if (noClientSelected) noClientSelected.classList.add('hidden');
+    if (!clientInfo || !noClientSelected) return;
+    
+    clientInfo.classList.remove('hidden');
+    noClientSelected.classList.add('hidden');
     
     // Informations générales
-    document.getElementById('clientNom').textContent = client.name || '';
-    document.getElementById('clientPrenom').textContent = client.surname || '';
-    document.getElementById('clientBirthDate').textContent = client.birth_date || 'Non renseigné';
-    document.getElementById('clientType').innerHTML = client.SORCIER != null ? '🧙 Sorcier' : '🏠 Moldu';
-    document.getElementById('clientMoney').textContent = client.money ? parseFloat(client.money).toFixed(2) : '0.00';
+    const nomElem = document.getElementById('clientNom');
+    const prenomElem = document.getElementById('clientPrenom');
+    const birthDateElem = document.getElementById('clientBirthDate');
+    const typeElem = document.getElementById('clientType');
+    const moneyElem = document.getElementById('clientMoney');
+    
+    if (nomElem) nomElem.textContent = client.name || '';
+    if (prenomElem) prenomElem.textContent = client.surname || '';
+    if (birthDateElem) birthDateElem.textContent = client.birth_date || 'Non renseigné';
+    if (typeElem) typeElem.innerHTML = client.SORCIER != null ? '🧙 Sorcier' : '🏠 Moldu';
+    if (moneyElem) moneyElem.textContent = client.money ? parseFloat(client.money).toFixed(2) : '0.00';
     
     // Afficher les détails spécifiques
-    if (client.SORCIER != null) {
+    if (client.SORCIER != null && sorcierDetails && molduDetails) {
         sorcierDetails.style.display = 'block';
         molduDetails.style.display = 'none';
         
-        document.getElementById('clientEmail').textContent = client.sorcier.Chimney || 'Non renseigné';
-        document.getElementById('clientAdresse').textContent = `${client.sorcier.Add_House || ''}, ${client.sorcier.Add_School_name || ''}, ${client.sorcier.Add_Country || ''}`;
+        const emailElem = document.getElementById('clientEmail');
+        const adresseElem = document.getElementById('clientAdresse');
+        const registryElem = document.getElementById('sorcierRegistry');
+        const chimneyElem = document.getElementById('sorcierChimney');
+        const schoolElem = document.getElementById('sorcierSchool');
+        const houseElem = document.getElementById('sorcierHouse');
+        const countryElem = document.getElementById('sorcierCountry');
+        const licenceElem = document.getElementById('sorcierFlightLicence');
+        const telephoneElem = document.getElementById('clientTelephone');
         
-        document.getElementById('sorcierRegistry').textContent = client.sorcier.Wizard_registry_number || 'Non renseigné';
-        document.getElementById('sorcierChimney').textContent = client.sorcier.Chimney || 'Non renseigné';
-        document.getElementById('sorcierSchool').textContent = client.sorcier.Add_School_name || 'Non renseigné';
-        document.getElementById('sorcierHouse').textContent = client.sorcier.Add_House || 'Non renseigné';
-        document.getElementById('sorcierCountry').textContent = client.sorcier.Add_Country || 'Non renseigné';
-        document.getElementById('sorcierFlightLicence').textContent = client.sorcier.Flight_licence || '0';
+        if (emailElem) emailElem.textContent = client.sorcier?.Chimney || 'Non renseigné';
+        if (adresseElem) adresseElem.textContent = `${client.sorcier?.Add_House || ''}, ${client.sorcier?.Add_School_name || ''}, ${client.sorcier?.Add_Country || ''}`;
+        if (registryElem) registryElem.textContent = client.sorcier?.Wizard_registry_number || 'Non renseigné';
+        if (chimneyElem) chimneyElem.textContent = client.sorcier?.Chimney || 'Non renseigné';
+        if (schoolElem) schoolElem.textContent = client.sorcier?.Add_School_name || 'Non renseigné';
+        if (houseElem) houseElem.textContent = client.sorcier?.Add_House || 'Non renseigné';
+        if (countryElem) countryElem.textContent = client.sorcier?.Add_Country || 'Non renseigné';
+        if (licenceElem) licenceElem.textContent = client.sorcier?.Flight_licence || '0';
         
-        const owls = client.sorcier.owls || [];
-        document.getElementById('clientTelephone').textContent = owls.length > 0 ? owls.join(', ') : 'Aucun';
+        const owls = client.sorcier?.owls || [];
+        if (telephoneElem) telephoneElem.textContent = owls.length > 0 ? owls.join(', ') : 'Aucun';
         
-    } else if (client.MOLDU != null) {
+    } else if (client.MOLDU != null && sorcierDetails && molduDetails) {
         sorcierDetails.style.display = 'none';
         molduDetails.style.display = 'block';
         
-        document.getElementById('clientEmail').textContent = client.moldu.Mail || 'Non renseigné';
+        const emailElem = document.getElementById('clientEmail');
+        const adresseElem = document.getElementById('clientAdresse');
+        const registerElem = document.getElementById('molduNationalRegister');
+        const streetElem = document.getElementById('molduStreet');
+        const cityElem = document.getElementById('molduCity');
+        const houseNumElem = document.getElementById('molduHouseNumber');
+        const countryElem = document.getElementById('molduCountry');
+        const telephoneElem = document.getElementById('clientTelephone');
         
-        document.getElementById('clientAdresse').textContent = `${client.moldu.Add_House_number || ''} ${client.moldu.Add_Street || ''}, ${client.moldu.Add_City || ''}, ${client.moldu.Add_Country || ''}`;
-        
-        document.getElementById('molduNationalRegister').textContent = client.moldu.National_register_number || 'Non renseigné';
-        document.getElementById('molduStreet').textContent = client.moldu.Add_Street || 'Non renseigné';
-        document.getElementById('molduCity').textContent = client.moldu.Add_City || 'Non renseigné';
-        document.getElementById('molduHouseNumber').textContent = client.moldu.Add_House_number || 'Non renseigné';
-        document.getElementById('molduCountry').textContent = client.moldu.Add_Country || 'Non renseigné';
+        if (emailElem) emailElem.textContent = client.moldu?.Mail || 'Non renseigné';
+        if (adresseElem) adresseElem.textContent = `${client.moldu?.Add_House_number || ''} ${client.moldu?.Add_Street || ''}, ${client.moldu?.Add_City || ''}, ${client.moldu?.Add_Country || ''}`;
+        if (registerElem) registerElem.textContent = client.moldu?.National_register_number || 'Non renseigné';
+        if (streetElem) streetElem.textContent = client.moldu?.Add_Street || 'Non renseigné';
+        if (cityElem) cityElem.textContent = client.moldu?.Add_City || 'Non renseigné';
+        if (houseNumElem) houseNumElem.textContent = client.moldu?.Add_House_number || 'Non renseigné';
+        if (countryElem) countryElem.textContent = client.moldu?.Add_Country || 'Non renseigné';
 
         const telephones = client.telephones || [];
-        document.getElementById('clientTelephone').textContent = telephones.length > 0 ? telephones.join(', ') : 'Non renseigné';
+        if (telephoneElem) telephoneElem.textContent = telephones.length > 0 ? telephones.join(', ') : 'Non renseigné';
     }
 }
 
@@ -274,9 +311,7 @@ function displayVendeurs(vendeurs) {
         v.mail_pro?.toLowerCase().includes(searchTerm)
     );
     
-    while (container.firstChild) {
-        container.removeChild(container.firstChild);
-    }
+    container.innerHTML = '';
     
     filtered.forEach(vendeur => {
         const card = document.createElement('div');
@@ -293,7 +328,7 @@ function displayVendeurs(vendeurs) {
         
         const statusDiv = document.createElement('div');
         statusDiv.className = 'phone';
-        statusDiv.textContent = vendeur.actif ? '🟢 Actif' : '🔴 Inactif';
+        statusDiv.textContent = vendeur.actif == "1" ? '🟢 Actif' : '🔴 Inactif';
         
         card.appendChild(nameDiv);
         card.appendChild(emailDiv);
@@ -340,18 +375,24 @@ function displayVendeurInfo(vendeur) {
     if (vendeurInfo) vendeurInfo.classList.remove('hidden');
     if (noVendeurSelected) noVendeurSelected.classList.add('hidden');
     
-    document.getElementById('vendeurNom').textContent = vendeur.name || '';
-    document.getElementById('vendeurPrenom').textContent = vendeur.surname || '';
-    document.getElementById('vendeurEmail').textContent = vendeur.mail_pro || '';
-    document.getElementById('vendeurLogin').textContent = vendeur.login || '';
+    const nomElem = document.getElementById('vendeurNom');
+    const prenomElem = document.getElementById('vendeurPrenom');
+    const emailElem = document.getElementById('vendeurEmail');
+    const loginElem = document.getElementById('vendeurLogin');
+    const telephoneElem = document.getElementById('vendeurTelephone');
+    const actifElem = document.getElementById('vendeurActif');
+    
+    if (nomElem) nomElem.textContent = vendeur.name || '';
+    if (prenomElem) prenomElem.textContent = vendeur.surname || '';
+    if (emailElem) emailElem.textContent = vendeur.mail_pro || '';
+    if (loginElem) loginElem.textContent = vendeur.login || '';
     
     // Récupérer les téléphones
     const phones = [vendeur.tel1, vendeur.tel2, vendeur.tel3].filter(t => t);
-    document.getElementById('vendeurTelephone').textContent = phones.length > 0 ? phones.join(', ') : 'Non renseigné';
+    if (telephoneElem) telephoneElem.textContent = phones.length > 0 ? phones.join(', ') : 'Non renseigné';
     
-    const actifSpan = document.getElementById('vendeurActif');
-    if (actifSpan) {
-        actifSpan.innerHTML = vendeur.actif ? '<span style="color: green;">🟢 Actif</span>' : '<span style="color: red;">🔴 Inactif</span>';
+    if (actifElem) {
+        actifElem.innerHTML = vendeur.actif ? '<span style="color: green;">🟢 Actif</span>' : '<span style="color: red;">🔴 Inactif</span>';
     }
 }
 
@@ -463,9 +504,7 @@ async function showVendeurOrders(vendeurId) {
         }
         
         if (container) {
-            while (container.firstChild) {
-                container.removeChild(container.firstChild);
-            }
+            container.innerHTML = '';
             
             if (!commandes || commandes.length === 0) {
                 const emptyMessage = document.createElement('p');
@@ -512,9 +551,7 @@ async function showVendeurReservations(vendeurId) {
         }
         
         if (container) {
-            while (container.firstChild) {
-                container.removeChild(container.firstChild);
-            }
+            container.innerHTML = '';
             
             if (!reservations || reservations.length === 0) {
                 const emptyMessage = document.createElement('p');
