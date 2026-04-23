@@ -1,4 +1,4 @@
-export async function showOrders(clientId) {
+export async function showClientOrders() {
     try {
         const response = await fetch("/api/commandes/client", {
             credentials: "include",

@@ -31,7 +31,7 @@ class Employee(BaseModel):
     id_employee: Optional[int] = None
     username: str  # login
     password: str
-    actif: bool = True
+    actif: bool = False
     name: str
     surname: str
     mail: str  # mail_pro

@@ -50,8 +50,6 @@ async def auth_middleware(request: Request, call_next):
     session_user = request.cookies.get("userID")
     
     if not session_user:
-        if request.url.path.startswith("/api") and not request.url.path.startswith("/api/login"):
-            return JSONResponse(content={"message": "Not connected"}, status_code=401)
         return RedirectResponse("/auth")
     
     payload = verify_token(session_user)
@@ -133,12 +131,12 @@ async def basket(request: Request):
 
 
 @app.get("/logout")
-async def logout():
+async def logout(request : Request):
     response = RedirectResponse(url="/auth")
     response.delete_cookie("userID")
     response.delete_cookie("clientID")
     response.delete_cookie("vendeurID")
-    dao.logout(id)
+    dao.logout(request.state.user_id)
     return response
 
 
@@ -177,7 +175,7 @@ async def register_employee(request: Request, employee: Employee):
         mail=employee.mail,
         phone=employee.phone,
         is_admin=employee.is_admin,
-        id_patron=request.state.user_id if not employee.is_admin else None
+        id_patron= request.state.user_id if not employee.is_admin else None
     )
     
     success = dao.create_employee(new_employee)
@@ -424,13 +422,71 @@ async def select_vendeur(request: Request, select_data: SelectVendeurRequest):
 
 @app.put("/api/modify/vendeur")
 @require_role(["admin"])
-async def modify_vendeur(vendeur: Employee):
-    """Modifie un vendeur"""
-    success = dao.modify_vendeur(vendeur)
-    if not success:
+async def modify_vendeur(request: Request, vendeur_data: dict):
+    """
+    Modifie un vendeur (le mot de passe est optionnel)
+    """
+    # Extraire les données
+    vendeur_id = vendeur_data.get("id_employee")
+    if not vendeur_id:
+        raise HTTPException(status_code=400, detail="Vendeur ID required")
+    
+    # Récupérer le vendeur existant
+    existing_vendeur = dao.get_vendeur_by_id(vendeur_id)
+    if not existing_vendeur:
         raise HTTPException(status_code=404, detail="Vendeur not found")
     
-    return JSONResponse({"success": True, "message": f"Vendeur {vendeur.name} modified successfully"})
+    # Mettre à jour uniquement les champs fournis
+    update_data = {}
+    
+    if "name" in vendeur_data:
+        update_data["name"] = vendeur_data["name"]
+    if "surname" in vendeur_data:
+        update_data["surname"] = vendeur_data["surname"]
+    if "mail" in vendeur_data:
+        update_data["mail_pro"] = vendeur_data["mail"]
+    if "username" in vendeur_data:
+        update_data["login"] = vendeur_data["username"]
+    if "is_admin" in vendeur_data:
+        update_data["is_patron"] = 1 if vendeur_data["is_admin"] else 0
+    
+    # Téléphones
+    if "phone" in vendeur_data:
+        phones = vendeur_data["phone"]
+        # Réinitialiser les téléphones
+        update_data["tel1"] = None
+        update_data["tel2"] = None
+        update_data["tel3"] = None
+        for i, phone in enumerate(phones[:3], 1):
+            if phone and phone.strip():
+                update_data[f"tel{i}"] = phone.strip()
+    
+    # Mot de passe (optionnel)
+    if "password" in vendeur_data and vendeur_data["password"]:
+        # Hasher le nouveau mot de passe
+        hashed_password = bcrypt.hashpw(vendeur_data["password"].encode('utf-8'), bcrypt.gensalt())
+        update_data["password"] = hashed_password.decode('utf-8')
+    
+    if not update_data:
+        return JSONResponse({"success": True, "message": "No changes to apply"})
+    
+    # Construire la requête SQL dynamique
+    set_clause = ", ".join([f"{key} = ?" for key in update_data.keys()])
+    values = list(update_data.values()) + [vendeur_id]
+    
+    query = f"UPDATE EMPLOYEE SET {set_clause} WHERE id_employee = ?"
+    
+    try:
+        conn = dao._get_connection()
+        cursor = conn.cursor()
+        cursor.execute(query, values)
+        conn.commit()
+        conn.close()
+        
+        return JSONResponse({"success": True, "message": "Vendeur modified successfully"})
+    except Exception as e:
+        print(f"Erreur modification vendeur: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to modify vendeur: {str(e)}")
 
 
 @app.delete("/api/delete/vendeurs/{vendeurs_id}")
@@ -595,7 +651,7 @@ async def get_commandes_vendeur(request: Request):
     if not vendeur_id:
         raise HTTPException(status_code=400, detail="No salesperson selected")
     
-    return JSONResponse(dao.get_client_commandes(int(vendeur_id)))  # Note: à adapter selon votre DAO
+    return JSONResponse(dao.get_vendeur_commandes(int(vendeur_id)))
 
 
 @app.post("/api/commandes")

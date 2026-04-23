@@ -557,7 +557,6 @@ export function setupModifyClient() {
             return;
         }
         
-        console.log('Ouverture du modal pour le client:', client);
         currentClientId = client.id_client;
         resetForm();
         await loadClientData(currentClientId);

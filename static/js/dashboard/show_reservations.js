@@ -1,4 +1,4 @@
-export async function showReservations(clientId) {
+export async function showClientReservations() {
     try {
         const response = await fetch("/api/reservations/client", {
             credentials: "include",

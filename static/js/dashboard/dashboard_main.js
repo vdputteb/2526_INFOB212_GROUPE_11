@@ -1,7 +1,11 @@
-import {showOrders} from './show_commands.js';
-import {showReservations} from './show_reservations.js';
+import {showClientOrders} from './show_commands.js';
+import {showClientReservations} from './show_reservations.js';
 import {AddClient} from './add_client.js';
 import {setupModifyClient, addDeleteClientButton, addModifyClientButton} from './modify_client.js';
+import {AddVendeur} from './admin/add_vendeur.js';
+import {setupModifyVendeur, addModifyVendeurButton} from './admin/modify_vendeur.js';
+import {showVendeurOrders} from './admin/show_commands_vendeur.js';
+import {showVendeurReservations} from './admin/show_reservations_vendeur.js';
 
 let currentClient = null;
 let currentVendeur = null;
@@ -9,12 +13,14 @@ window.currentClient = currentClient;
 window.currentVendeur = currentVendeur;
 window.loadClients = loadClients;
 window.displayClientInfo = displayClientInfo;
+window.loadVendeurs = loadVendeurs;
 
 document.addEventListener('DOMContentLoaded', () => {
     // Définir d'abord les variables globales nécessaires
     window.currentClient = currentClient;
     window.currentVendeur = currentVendeur;
     window.loadClients = loadClients;
+    window.loadVendeurs = loadVendeurs;
     window.displayClientInfo = displayClientInfo;
     window.selectClient = selectClient;
     
@@ -253,7 +259,7 @@ function setupVendeurEventListeners() {
     if (viewOrdersBtn) {
         viewOrdersBtn.addEventListener('click', async () => {
             if (currentClient) {
-                await showOrders(currentClient.id_client);
+                await showClientOrders();
             } else {
                 alert('Veuillez d\'abord sélectionner un client');
             }
@@ -264,7 +270,7 @@ function setupVendeurEventListeners() {
     if (viewReservationsBtn) {
         viewReservationsBtn.addEventListener('click', async () => {
             if (currentClient) {
-                await showReservations(currentClient.id_client);
+                await showClientReservations();
             } else {
                 alert('Veuillez d\'abord sélectionner un client');
             }
@@ -409,18 +415,11 @@ function setupAdminEventListeners() {
         vendeurSearch.addEventListener('input', () => loadVendeurs());
     }
     
-    const showAddVendeurBtn = document.getElementById('showAddVendeurBtn');
-    if (showAddVendeurBtn) {
-        showAddVendeurBtn.addEventListener('click', () => {
-            alert('Fonctionnalité à implémenter');
-        });
-    }
-    
     const viewVendeurOrdersBtn = document.getElementById('viewVendeurOrdersBtn');
     if (viewVendeurOrdersBtn) {
         viewVendeurOrdersBtn.addEventListener('click', async () => {
             if (currentVendeur) {
-                await showVendeurOrders(currentVendeur.id_employee);
+                await showVendeurOrders();
             } else {
                 alert('Veuillez d\'abord sélectionner un vendeur');
             }
@@ -431,7 +430,7 @@ function setupAdminEventListeners() {
     if (viewVendeurReservationsBtn) {
         viewVendeurReservationsBtn.addEventListener('click', async () => {
             if (currentVendeur) {
-                await showVendeurReservations(currentVendeur.id_employee);
+                await showVendeurReservations();
             } else {
                 alert('Veuillez d\'abord sélectionner un vendeur');
             }
@@ -459,6 +458,11 @@ function setupAdminEventListeners() {
             }
         });
     }
+
+    AddVendeur();
+    setupModifyVendeur();
+    addModifyVendeurButton();
+
 }
 
 async function deleteVendeur(vendeurId) {
@@ -485,196 +489,4 @@ async function deleteVendeur(vendeurId) {
         console.error('Erreur suppression vendeur:', error);
         alert('Erreur réseau');
     }
-}
-
-async function showVendeurOrders(vendeurId) {
-    try {
-        const response = await fetch(`/api/commandes/vendeur/${vendeurId}`, {
-            credentials: "include",
-            method: "GET"
-        });
-        const commandes = await response.json();
-        
-        const modal = document.getElementById('ordersModal');
-        const container = document.getElementById('ordersList');
-        const modalTitle = document.getElementById('ordersModalTitle');
-        
-        if (modalTitle) {
-            modalTitle.textContent = `📦 Commandes du vendeur`;
-        }
-        
-        if (container) {
-            container.innerHTML = '';
-            
-            if (!commandes || commandes.length === 0) {
-                const emptyMessage = document.createElement('p');
-                emptyMessage.textContent = 'Aucune commande pour ce vendeur.';
-                emptyMessage.style.textAlign = 'center';
-                emptyMessage.style.padding = '40px';
-                emptyMessage.style.color = '#6c757d';
-                container.appendChild(emptyMessage);
-            } else {
-                commandes.forEach(cmd => {
-                    const orderCard = createOrderCard(cmd);
-                    container.appendChild(orderCard);
-                });
-            }
-        }
-        
-        if (modal) modal.style.display = 'flex';
-        
-        const closeModal = modal?.querySelector('.close-modal');
-        if (closeModal) {
-            closeModal.onclick = () => modal.style.display = 'none';
-        }
-        window.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
-    } catch (error) {
-        console.error('Erreur chargement commandes vendeur:', error);
-        alert('Erreur lors du chargement des commandes');
-    }
-}
-
-async function showVendeurReservations(vendeurId) {
-    try {
-        const response = await fetch(`/api/reservations/vendeur/${vendeurId}`, {
-            credentials: "include",
-            method: "GET"
-        });
-        const reservations = await response.json();
-        
-        const modal = document.getElementById('reservationsModal');
-        const container = document.getElementById('reservationsList');
-        const modalTitle = document.getElementById('reservationsModalTitle');
-        
-        if (modalTitle) {
-            modalTitle.textContent = `📅 Locations gérées par le vendeur`;
-        }
-        
-        if (container) {
-            container.innerHTML = '';
-            
-            if (!reservations || reservations.length === 0) {
-                const emptyMessage = document.createElement('p');
-                emptyMessage.textContent = 'Aucune location pour ce vendeur.';
-                emptyMessage.style.textAlign = 'center';
-                emptyMessage.style.padding = '40px';
-                emptyMessage.style.color = '#6c757d';
-                container.appendChild(emptyMessage);
-            } else {
-                const catalogueRes = await fetch('/api/catalogue');
-                const catalogue = await catalogueRes.json();
-                
-                reservations.forEach(res => {
-                    const broom = catalogue.find(b => b.id_balai === res.id_balai);
-                    const reservationCard = createReservationCard(res, broom);
-                    container.appendChild(reservationCard);
-                });
-            }
-        }
-        
-        if (modal) modal.style.display = 'flex';
-        
-        const closeModal = modal?.querySelector('.close-modal');
-        if (closeModal) {
-            closeModal.onclick = () => modal.style.display = 'none';
-        }
-        window.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
-    } catch (error) {
-        console.error('Erreur chargement locations vendeur:', error);
-        alert('Erreur lors du chargement des locations');
-    }
-}
-
-function createOrderCard(cmd) {
-    const orderCard = document.createElement('div');
-    orderCard.className = 'order-card';
-    
-    const orderHeader = document.createElement('div');
-    orderHeader.className = 'order-header';
-    
-    const orderIdStrong = document.createElement('strong');
-    orderIdStrong.textContent = `Commande #${cmd.id_commande || cmd.id}`;
-    
-    const orderDate = document.createElement('span');
-    orderDate.className = 'order-date';
-    orderDate.textContent = cmd.sale_date || cmd.command_date ? new Date(cmd.sale_date || cmd.command_date).toLocaleDateString() : 'Date inconnue';
-    
-    const orderType = document.createElement('span');
-    orderType.className = 'order-status';
-    const typeText = cmd.type_commande === 'vente' ? '💰 Vente' : (cmd.type_commande === 'location' ? '📅 Location' : (cmd.VENTE ? '💰 Vente' : '📅 Location'));
-    orderType.textContent = typeText;
-    
-    orderHeader.appendChild(orderIdStrong);
-    orderHeader.appendChild(orderDate);
-    orderHeader.appendChild(orderType);
-    
-    orderCard.appendChild(orderHeader);
-    
-    if (cmd.client_name || cmd.client_surname) {
-        const clientInfo = document.createElement('div');
-        clientInfo.className = 'order-client';
-        clientInfo.style.marginTop = '10px';
-        clientInfo.style.fontSize = '14px';
-        clientInfo.style.color = '#6c757d';
-        clientInfo.textContent = `Client: ${cmd.client_surname || ''} ${cmd.client_name || ''}`;
-        orderCard.appendChild(clientInfo);
-    }
-    
-    return orderCard;
-}
-
-function createReservationCard(res, broom) {
-    const reservationCard = document.createElement('div');
-    reservationCard.className = 'reservation-card';
-    
-    const reservationHeader = document.createElement('div');
-    reservationHeader.className = 'reservation-header';
-    
-    const broomStrong = document.createElement('strong');
-    broomStrong.textContent = broom?.Libelle || broom?.libelle || `Balai #${res.id_balai || res.broomId}`;
-    
-    const reservationDates = document.createElement('span');
-    reservationDates.className = 'reservation-dates';
-    reservationDates.textContent = `${res.begin_date || res.startDate} → ${res.end_date || res.endDate}`;
-    
-    reservationHeader.appendChild(broomStrong);
-    reservationHeader.appendChild(reservationDates);
-    
-    const reservationStatus = document.createElement('div');
-    reservationStatus.className = 'reservation-status';
-    reservationStatus.style.marginTop = '10px';
-    reservationStatus.style.fontSize = '14px';
-    reservationStatus.style.padding = '4px 12px';
-    reservationStatus.style.borderRadius = '20px';
-    reservationStatus.style.display = 'inline-block';
-    
-    const status = res.status || 'En cours';
-    if (status === 'Pending') {
-        reservationStatus.style.backgroundColor = '#f39c12';
-        reservationStatus.textContent = ' En attente';
-    } else if (status === 'Confirmed') {
-        reservationStatus.style.backgroundColor = '#27ae60';
-        reservationStatus.textContent = ' Confirmée';
-    } else if (status === 'Finished') {
-        reservationStatus.style.backgroundColor = '#95a5a6';
-        reservationStatus.textContent = ' Terminée';
-    } else {
-        reservationStatus.style.backgroundColor = '#3498db';
-        reservationStatus.textContent = `📌 ${status}`;
-    }
-    
-    reservationCard.appendChild(reservationHeader);
-    reservationCard.appendChild(reservationStatus);
-    
-    if (res.client_name || res.client_surname) {
-        const clientInfo = document.createElement('div');
-        clientInfo.className = 'reservation-client';
-        clientInfo.style.marginTop = '10px';
-        clientInfo.style.fontSize = '12px';
-        clientInfo.style.color = '#6c757d';
-        clientInfo.textContent = `Client: ${res.client_surname || ''} ${res.client_name || ''}`;
-        reservationCard.appendChild(clientInfo);
-    }
-    
-    return reservationCard;
 }

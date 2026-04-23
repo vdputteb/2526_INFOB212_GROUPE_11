@@ -118,6 +118,133 @@
     </div>
 </section>
 
+<!-- Modal ajout vendeur -->
+<div id="addVendeurModal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal">&times;</span>
+        <h3>+ Nouveau Vendeur</h3>
+        <form id="addVendeurForm">
+            <div class="form-group">
+                <label>Nom *</label>
+                <input type="text" id="newVendeurNom" required>
+                <small class="validation-hint">2 à 50 caractères, lettres et accents uniquement</small>
+            </div>
+            <div class="form-group">
+                <label>Prénom *</label>
+                <input type="text" id="newVendeurPrenom" required>
+            </div>
+            <div class="form-group">
+                <label>Email professionnel *</label>
+                <input type="email" id="newVendeurMail" required>
+                <small class="validation-hint">Format: nom@domaine.com</small>
+            </div>
+            <div class="form-group">
+                <label>Identifiant *</label>
+                <input type="text" id="newVendeurLogin" required>
+                <small class="validation-hint">3 à 50 caractères, lettres, chiffres, _ ou .</small>
+            </div>
+            <div class="form-group">
+                <label>Mot de passe *</label>
+                <input type="password" id="newVendeurpassword" required>
+                <small class="validation-hint">Minimum 6 caractères</small>
+            </div>
+            <div class="form-group">
+                <label>Répéter le mot de passe *</label>
+                <input type="password" id="RetryVendeurPassword" required>
+            </div>
+            <div class="form-group">
+                <label>Type de vendeur *</label>
+                <select id="newVendeurType" required>
+                    <option value="0">Vendeur</option>
+                    <option value="1">Patron (Admin)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Téléphones (séparés par des virgules)</label>
+                <input type="text" id="newVendeurTelephones" placeholder="ex: +32 471 12 34 56, +32 475 98 76 54">
+                <small class="validation-hint">Optionnel - Format international recommandé</small>
+            </div>
+            <button type="submit" class="btn-submit">Créer le Vendeur</button>
+        </form>
+    </div>
+</div>
+
+<!-- Modal de modification vendeur -->
+<div id="modifyVendeurModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>✏️ Modifier le vendeur</h2>
+            <span class="close-modal">&times;</span>
+        </div>
+        
+        <form id="modifyVendeurForm">
+            <h3>📋 Informations générales</h3>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="modifyVendeurNom">Nom *</label>
+                    <input type="text" id="modifyVendeurNom" name="nom" required>
+                    <small>2 à 50 caractères, lettres et accents uniquement</small>
+                </div>
+                <div class="form-group">
+                    <label for="modifyVendeurPrenom">Prénom *</label>
+                    <input type="text" id="modifyVendeurPrenom" name="prenom" required>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="modifyVendeurMail">Email professionnel *</label>
+                    <input type="email" id="modifyVendeurMail" name="mail" required>
+                    <small>Format: nom@domaine.com</small>
+                </div>
+                <div class="form-group">
+                    <label for="modifyVendeurLogin">Identifiant *</label>
+                    <input type="text" id="modifyVendeurLogin" name="login" required>
+                    <small>3 à 50 caractères, lettres, chiffres, _ ou .</small>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="modifyVendeurType">Type de vendeur *</label>
+                    <select id="modifyVendeurType" required>
+                        <option value="0">Vendeur</option>
+                        <option value="1">Patron (Admin)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="modifyVendeurTelephones">Téléphones (séparés par des virgules)</label>
+                <input type="text" id="modifyVendeurTelephones" name="telephones" placeholder="+32 471 12 34 56, +32 475 98 76 54">
+                <small>Optionnel - Format international recommandé</small>
+            </div>
+            
+            <hr>
+            <h3>🔐 Changer le mot de passe (optionnel)</h3>
+            <p><small>Laissez vide pour conserver le mot de passe actuel.</small></p>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="modifyVendeurPassword">Nouveau mot de passe</label>
+                    <input type="password" id="modifyVendeurPassword" name="password">
+                    <small>Minimum 6 caractères</small>
+                </div>
+                <div class="form-group">
+                    <label for="modifyRetryVendeurPassword">Confirmer le mot de passe</label>
+                    <input type="password" id="modifyRetryVendeurPassword" name="retryPassword">
+                </div>
+            </div>
+            
+            <div class="modal-buttons">
+                <button type="submit" class="btn-save">💾 Enregistrer les modifications</button>
+                <button type="button" class="btn-cancel" id="cancelModifyVendeurBtn">❌ Annuler</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Modal ajout client -->
 <div id="addClientModal" class="modal">
     <div class="modal-content">
