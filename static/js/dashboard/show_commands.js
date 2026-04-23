@@ -53,13 +53,8 @@ export async function showOrders(clientId) {
                 orderDate.textContent = cmd.sale_date ? new Date(cmd.sale_date).toLocaleDateString() : 
                                        (cmd.command_date ? new Date(cmd.command_date).toLocaleDateString() : 'Date inconnue');
                 
-                const orderType = document.createElement('span');
-                orderType.className = 'order-status';
-                orderType.textContent = cmd.VENTE ? '💰 Vente' : '📅 Location';
-                
                 orderHeader.appendChild(orderIdStrong);
                 orderHeader.appendChild(orderDate);
-                orderHeader.appendChild(orderType);
                 
                 orderCard.appendChild(orderHeader);
                 

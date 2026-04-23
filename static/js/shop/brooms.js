@@ -1,5 +1,5 @@
-import {showRentalModal } from './reservation.js';
-import {showNotification} from './notification.js';
+import { showRentalModal } from './reservation.js';
+import { showNotification } from './notification.js';
 import { updateCartCount } from './update_cart.js';
 import { escapeHtml } from './escape_html.js';
 import { BasketManager } from '../class/BasketManager.js';
@@ -35,29 +35,49 @@ function createBroomCard(broom) {
     
     const broomImage = document.createElement('div');
     broomImage.className = 'broom-image';
-    broomImage.textContent = broom.img || '🧹';
+    // Utilisation de l'image si disponible, sinon emoji par défaut
+    if (broom.img) {
+        const img = document.createElement('img');
+        img.src = `/static/images/${broom.img}`;
+        img.alt = escapeHtml(broom.Libelle);
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'cover';
+        broomImage.appendChild(img);
+    } else {
+        broomImage.textContent = '🧹';
+    }
     
     const broomInfo = document.createElement('div');
     broomInfo.className = 'broom-info';
     
+    // Déterminer la catégorie (magique si BALAI_MAGIQUE === 1)
+    const isMagique = broom.BALAI_MAGIQUE === 1;
     const broomCategory = document.createElement('span');
     broomCategory.className = 'broom-category';
-    broomCategory.textContent = broom.categorie === 'magique' ? 'Magique ✨' : 'Non-magique 🧹';
+    broomCategory.textContent = isMagique ? 'Magique ✨' : 'Non-magique 🧹';
     
     const broomName = document.createElement('h3');
     broomName.className = 'broom-name';
-    broomName.textContent = escapeHtml(broom.libelle);
+    broomName.textContent = escapeHtml(broom.Libelle);
     
     const broomDescription = document.createElement('p');
     broomDescription.className = 'broom-description';
-    broomDescription.textContent = escapeHtml(broom.description);
+    broomDescription.textContent = escapeHtml(broom.description || '');
     
     const etatContainer = document.createElement('div');
     etatContainer.className = 'etat-container';
     
     const etatLabel = document.createElement('div');
     etatLabel.className = 'etat-label';
-    const etatValue = broom.etat === 'neuf' ? 'Neuf' : (broom.nb_utilisation > 400 ? 'Usé' : 'Bon');
+    // Calcul de l'état basé sur wear ou uses_number
+    const wear = broom.wear !== undefined ? broom.wear : (broom.uses_number || 0);
+    let etatValue = 'Neuf';
+    if (wear > 80) {
+        etatValue = 'Usé';
+    } else if (wear > 40) {
+        etatValue = 'Bon';
+    }
     etatLabel.innerHTML = `<strong>État:</strong> ${etatValue}`;
     
     const etatBar = document.createElement('div');
@@ -65,9 +85,9 @@ function createBroomCard(broom) {
     
     const etatFill = document.createElement('div');
     etatFill.className = 'etat-fill';
-    const fillWidth = Math.min(100, broom.nb_utilisation / 5);
+    const fillWidth = Math.min(100, wear);
     etatFill.style.width = `${fillWidth}%`;
-    etatFill.style.backgroundColor = broom.nb_utilisation > 400 ? '#e74c3c' : (broom.nb_utilisation > 250 ? '#f39c12' : '#27ae60');
+    etatFill.style.backgroundColor = wear > 80 ? '#e74c3c' : (wear > 40 ? '#f39c12' : '#27ae60');
     
     etatBar.appendChild(etatFill);
     etatContainer.appendChild(etatLabel);
@@ -78,11 +98,11 @@ function createBroomCard(broom) {
     
     const priceRent = document.createElement('div');
     priceRent.className = 'price-rent';
-    priceRent.innerHTML = `${broom.prix_location.toFixed(2)}€ <span class="price-period">/jour</span>`;
+    priceRent.innerHTML = `${(broom.location_price || 0).toFixed(2)}€ <span class="price-period">/jour</span>`;
     
     const priceBuy = document.createElement('div');
     priceBuy.className = 'price-buy';
-    priceBuy.innerHTML = `${broom.prix_vente.toFixed(2)}€ <span class="price-label">achat</span>`;
+    priceBuy.innerHTML = `${(broom.sale_price || 0).toFixed(2)}€ <span class="price-label">achat</span>`;
     
     priceContainer.appendChild(priceRent);
     priceContainer.appendChild(priceBuy);
@@ -118,18 +138,18 @@ function createBroomCard(broom) {
 
 function addToCart(broom, type) {
     const item = {
-        id: broom.id,
-        name: broom.libelle,
+        id: broom.id_balai,
+        name: broom.Libelle,
         type: type,
-        price: type === 'buy' ? broom.prix_vente : broom.prix_location,
+        price: type === 'buy' ? broom.sale_price : broom.location_price,
         quantity: 1,
-        total: type === 'buy' ? broom.prix_vente : broom.prix_location,
-        category: broom.categorie === 'magique' ? 'Balai magique ✨' : 'Balai traditionnel',
-        icon: broom.categorie === 'magique' ? '✨🧹' : '🧹'
+        total: type === 'buy' ? broom.sale_price : broom.location_price,
+        category: broom.BALAI_MAGIQUE === 1 ? 'Balai magique ✨' : 'Balai traditionnel',
+        icon: broom.BALAI_MAGIQUE === 1 ? '✨🧹' : '🧹'
     };
     
     BasketManager.addItem(item);
-    showNotification(`"${broom.libelle}" ajouté au panier`, 'success');
+    showNotification(`"${broom.Libelle}" ajouté au panier`, 'success');
     updateCartCount();
     BasketManager.updateCartButtonCount();
 }

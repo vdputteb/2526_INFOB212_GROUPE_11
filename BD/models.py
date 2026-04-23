@@ -283,8 +283,6 @@ class SelectVendeurRequest(BaseModel):
 
 class CreateCommandeRequest(BaseModel):
     """Requête pour créer une commande d'achat"""
-    employee_id: int
-    client_id: int
     sale_date: str  # YYYY-MM-DD
     broom_ids: List[int]
     
