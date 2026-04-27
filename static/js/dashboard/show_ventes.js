@@ -1,6 +1,6 @@
 export async function showClientOrders() {
     try {
-        const response = await fetch("/api/commandes/client", {
+        const response = await fetch("/api/ventes/client", {
             credentials: "include",
             method: "GET",
             headers: {
@@ -9,19 +9,19 @@ export async function showClientOrders() {
         });
         
         if (!response.ok) {
-            console.error('Erreur chargement commandes:', response.status);
-            alert('Erreur lors du chargement des commandes');
+            console.error('Erreur chargement ventes:', response.status);
+            alert('Erreur lors du chargement des ventes');
             return;
         }
         
-        const commandes = await response.json();
+        const ventes = await response.json();
         
         const modal = document.getElementById('ordersModal');
         const container = document.getElementById('ordersList');
         const modalTitle = document.getElementById('ordersModalTitle');
         
         if (modalTitle) {
-            modalTitle.textContent = `📦 Commandes du client`;
+            modalTitle.textContent = `📦 ventes du client`;
         }
         
         if (!container) return;
@@ -30,7 +30,7 @@ export async function showClientOrders() {
             container.removeChild(container.firstChild);
         }
         
-        if (!commandes || commandes.length === 0) {
+        if (!ventes || ventes.length === 0) {
             const emptyMessage = document.createElement('p');
             emptyMessage.textContent = 'Aucune commande pour ce client.';
             emptyMessage.style.textAlign = 'center';
@@ -38,7 +38,7 @@ export async function showClientOrders() {
             emptyMessage.style.color = '#6c757d';
             container.appendChild(emptyMessage);
         } else {
-            commandes.forEach(cmd => {
+            ventes.forEach(cmd => {
                 const orderCard = document.createElement('div');
                 orderCard.className = 'order-card';
                 
@@ -81,7 +81,7 @@ export async function showClientOrders() {
         }
         window.onclick = (e) => { if (e.target === modal) modal.style.display = 'none'; };
     } catch (error) {
-        console.error('Erreur chargement commandes:', error);
-        alert('Erreur lors du chargement des commandes');
+        console.error('Erreur chargement ventes:', error);
+        alert('Erreur lors du chargement des ventes');
     }
 }

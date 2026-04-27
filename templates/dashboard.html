@@ -40,7 +40,7 @@
                             </div>
                             <div class="actions">
                                 <button id="viewVendeurOrdersBtn" class="btn-action">📦 Commandes traitées</button>
-                                <button id="viewVendeurReservationsBtn" class="btn-action">📅 Locations gérées</button>
+                                <button id="viewVendeurlocationsBtn" class="btn-action">📅 Locations gérées</button>
                                 <button id="modifyVendeurBtn" class="btn-action">✏️ Modifier le vendeur</button>
                                 <button id="deleteVendeurBtn" class="btn-action btn-danger">🗑️ Supprimer</button>
                             </div>
@@ -105,7 +105,7 @@
                             <div class="actions" id="vendeur-action">
                                 <button id="viewCatalogueBtn" class="btn-action">🛍️ Voir le catalogue</button>
                                 <button id="viewOrdersBtn" class="btn-action">📦 Commandes</button>
-                                <button id="viewReservationsBtn" class="btn-action">📅 Locations</button>
+                                <button id="viewlocationsBtn" class="btn-action">📅 Locations</button>
                             </div>
                         </div>
                         <div id="noClientSelected" class="no-client">
@@ -502,11 +502,11 @@
 </div>
 
 <!-- Modal locations -->
-<div id="reservationsModal" class="modal modal-large">
+<div id="locationsModal" class="modal modal-large">
     <div class="modal-content">
         <span class="close-modal">&times;</span>
-        <h3 id="reservationsModalTitle">📅 Locations</h3>
-        <div id="reservationsList" class="reservations-list"></div>
+        <h3 id="locationsModalTitle">📅 Locations</h3>
+        <div id="locationsList" class="locations-list"></div>
     </div>
 </div>
 

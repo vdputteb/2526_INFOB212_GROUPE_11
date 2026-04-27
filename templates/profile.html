@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<link rel="stylesheet" href="{{ url_for('static', path='css/profile.css') }}">
+<script type="module" src="{{ url_for('static', path='js/profile/profile_main.js') }}"></script>
+
+<section class="profile-section">
+    <div class="profile-container">
+        <!-- Header avec infos utilisateur -->
+        <div class="profile-header">
+            <div class="profile-avatar">
+                <div class="avatar-icon" id="userInitials"></div>
+                <span class="role-badge" id="userRoleBadge"></span>
+            </div>
+            <div class="profile-info">
+                <h1 id="userFullName">Chargement...</h1>
+                <p class="user-login" id="userLogin"></p>
+                <p class="user-email" id="userEmail"></p>
+            </div>
+            <div class="profile-actions">
+                <!-- Bouton Modifier mon profil masqué -->
+                <button id="editProfileBtn" class="btn-edit" style="display: none;">✏️ Modifier mon profil</button>
+                <button id="refreshDataBtn" class="btn-refresh">🔄 Actualiser</button>
+            </div>
+        </div>
+
+        <!-- Onglets de navigation -->
+        <div class="profile-tabs">
+            <button class="tab-btn active" data-tab="ventes">📦 Mes Ventes</button>
+            <button class="tab-btn" data-tab="locations">📅 Mes Locations</button>
+            <button class="tab-btn" data-tab="fournisseur">🏭 Commandes Fournisseur</button>
+            <button class="tab-btn" data-tab="stats">📊 Statistiques</button>
+        </div>
+
+        <!--  TAB VENTES  -->
+        <div id="ventesTab" class="tab-content active">
+            <div class="tab-header">
+                <h2>📦 Ventes réalisées</h2>
+                <div class="filter-group">
+                    <input type="text" id="ventesSearch" placeholder="🔍 Rechercher..." class="search-input">
+                    <select id="ventesFilter" class="filter-select">
+                        <option value="all">Toutes les ventes</option>
+                        <option value="30days">30 derniers jours</option>
+                        <option value="90days">90 derniers jours</option>
+                        <option value="year">Cette année</option>
+                    </select>
+                </div>
+            </div>
+            <div class="ventes-list" id="ventesList">
+                <div class="loading-spinner">Chargement...</div>
+            </div>
+            <div class="pagination" id="ventesPagination"></div>
+        </div>
+
+        <!--  TAB LOCATIONS  -->
+        <div id="locationsTab" class="tab-content">
+            <div class="tab-header">
+                <h2>📅 Locations en cours</h2>
+                <div class="filter-group">
+                    <input type="text" id="locationsSearch" placeholder="🔍 Rechercher..." class="search-input">
+                    <select id="locationsFilter" class="filter-select">
+                        <option value="all">Toutes les locations</option>
+                        <option value="pending">En attente</option>
+                        <option value="progress">En cours</option>
+                        <option value="finished">Terminées</option>
+                    </select>
+                </div>
+            </div>
+            <div class="locations-list" id="locationsList">
+                <div class="loading-spinner">Chargement...</div>
+            </div>
+            
+            <!-- Locations terminées -->
+            <div class="section-divider">
+                <h3> Locations terminées</h3>
+            </div>
+            <div class="finished-list" id="finishedLocationsList">
+                <div class="loading-spinner">Chargement...</div>
+            </div>
+            <div class="pagination" id="locationsPagination"></div>
+        </div>
+
+        <!--  TAB FOURNISSEUR  -->
+        <div id="fournisseurTab" class="tab-content">
+            <div class="tab-header">
+                <h2>🏭 Commandes fournisseur</h2>
+                <button id="newCommandeFournisseurBtn" class="btn-primary">+ Nouvelle commande fournisseur</button>
+            </div>
+
+            <!-- Commandes en attente d'approbation (visible pour patrons) -->
+            <div id="pendingApprovalSection" class="admin-section" style="display: none;">
+                <h3>⏳ Commandes en attente d'approbation</h3>
+                <div class="pending-list" id="pendingApprovalList">
+                    <div class="loading-spinner">Chargement...</div>
+                </div>
+            </div>
+
+            <!-- Commandes passées -->
+            <h3>📋 Historique des commandes fournisseur</h3>
+            <div class="fournisseur-list" id="fournisseurList">
+                <div class="loading-spinner">Chargement...</div>
+            </div>
+            <div class="pagination" id="fournisseurPagination"></div>
+        </div>
+    </div>
+</section>
+
+<!--  MODAL VALIDATION RETOUR LOCATION  -->
+<div id="validateReturnModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>📅 Validation de retour de location</h2>
+            <span class="close-modal">&times;</span>
+        </div>
+        <form id="validateReturnForm">
+            <input type="hidden" id="returnCommandeId" name="commandeId">
+            <div class="form-group">
+                <label>Balai :</label>
+                <p id="returnBroomName" class="info-text"></p>
+            </div>
+            <div class="form-group">
+                <label>Client :</label>
+                <p id="returnClientName" class="info-text"></p>
+            </div>
+            <div class="form-group">
+                <label>Période de location :</label>
+                <p id="returnPeriod" class="info-text"></p>
+            </div>
+            <div class="form-group">
+                <label for="returnActualEndDate">Date de retour réelle *</label>
+                <input type="date" id="returnActualEndDate" name="actualEndDate" required>
+            </div>
+            <div class="form-group">
+                <label for="returnCondition">État du balai</label>
+                <select id="returnCondition" name="condition">
+                    <option value="excellent">Excellent</option>
+                    <option value="bon">Bon</option>
+                    <option value="moyen">Moyen</option>
+                    <option value="endommage">Endommagé</option>
+                </select>
+            </div>
+            <div class="modal-buttons">
+                <button type="submit" class="btn-save"> Valider le retour</button>
+                <button type="button" class="btn-cancel cancel-return"> Annuler</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!--  MODAL NOUVELLE COMMANDE FOURNISSEUR  -->
+<div id="commandeFournisseurModal" class="modal modal-large">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>🏭 Nouvelle commande fournisseur</h2>
+            <span class="close-modal">&times;</span>
+        </div>
+        <form id="commandeFournisseurForm">
+            <div class="form-group">
+                <label>Fournisseur *</label>
+                <select id="cfFournisseurId" required>
+                    <option value="">Sélectionner un fournisseur</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Date de commande *</label>
+                <input type="date" id="cfCommandDate" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Date de livraison prévue *</label>
+                <input type="date" id="cfExpectedDeliveryDate" required>
+            </div>
+            
+            <h3>🪄 Balais à commander</h3>
+            <div id="cfBalaisList">
+                <div class="broom-order-row">
+                    <select name="broomId[]" class="cfBroomSelect" required>
+                        <option value="">Sélectionner un balai</option>
+                    </select>
+                    <input type="number" name="quantity[]" placeholder="Quantité" class="cfQuantity" min="1" value="1">
+                    <input type="number" name="price[]" placeholder="Prix unitaire (€)" class="cfPrice" step="0.01" required>
+                    <button type="button" class="remove-broom-btn">🗑️</button>
+                </div>
+            </div>
+            
+            <button type="button" id="addBroomRowBtn" class="btn-secondary">+ Ajouter un balai</button>
+            
+            <div class="modal-buttons">
+                <button type="submit" class="btn-save">📦 Envoyer la commande</button>
+                <button type="button" class="btn-cancel cancel-commande"> Annuler</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!--  MODAL APPROBATION COMMANDE (ADMIN)  -->
+<div id="approveCommandeModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>🏭 Approuver la commande fournisseur</h2>
+            <span class="close-modal">&times;</span>
+        </div>
+        <form id="approveCommandeForm">
+            <input type="hidden" id="approveCommandeId">
+            <div class="form-group">
+                <label>Fournisseur :</label>
+                <p id="approveFournisseurName" class="info-text"></p>
+            </div>
+            <div class="form-group">
+                <label>Date de commande :</label>
+                <p id="approveCommandDate" class="info-text"></p>
+            </div>
+            <div class="form-group">
+                <label>Date de livraison prévue :</label>
+                <p id="approveExpectedDate" class="info-text"></p>
+            </div>
+            <div class="form-group">
+                <label>Balais commandés :</label>
+                <div id="approveBalaisList" class="items-list"></div>
+            </div>
+            <div class="form-group">
+                <label for="approveStatus">Action *</label>
+                <select id="approveStatus" required>
+                    <option value="Processing">Approuver et envoyer en traitement</option>
+                    <option value="Pending">Laisser en attente</option>
+                    <option value="Cancelled">Annuler la commande</option>
+                </select>
+            </div>
+            <div class="modal-buttons">
+                <button type="submit" class="btn-save"> Valider la décision</button>
+                <button type="button" class="btn-cancel cancel-approve"> Annuler</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Template pour une ligne de commande fournisseur -->
+<template id="broomOrderTemplate">
+    <div class="broom-order-row">
+        <select name="broomId[]" class="cfBroomSelect" required>
+            <option value="">Sélectionner un balai</option>
+        </select>
+        <input type="number" name="quantity[]" placeholder="Quantité" class="cfQuantity" min="1" value="1">
+        <input type="number" name="price[]" placeholder="Prix unitaire (€)" class="cfPrice" step="0.01" required>
+        <button type="button" class="remove-broom-btn">🗑️</button>
+    </div>
+</template>
+
+<!-- Template pour une ligne de vente -->
+<template id="venteTemplate">
+    <div class="vente-card">
+        <div class="vente-header">
+            <span class="vente-date"></span>
+            <span class="vente-total"></span>
+        </div>
+        <div class="vente-client"></div>
+        <div class="vente-items"></div>
+    </div>
+</template>
+
+<!-- Template pour une location -->
+<template id="locationTemplate">
+    <div class="location-card">
+        <div class="location-header">
+            <span class="location-period"></span>
+            <span class="location-status"></span>
+        </div>
+        <div class="location-client"></div>
+        <div class="location-broom"></div>
+        <div class="location-actions"></div>
+    </div>
+</template>
+
+<!-- Template pour une commande fournisseur -->
+<template id="fournisseurTemplate">
+    <div class="fournisseur-card">
+        <div class="fournisseur-header">
+            <span class="fournisseur-id"></span>
+            <span class="fournisseur-status"></span>
+        </div>
+        <div class="fournisseur-dates"></div>
+        <div class="fournisseur-items"></div>
+        <div class="fournisseur-actions"></div>
+    </div>
+</template>
+
+{% endblock %}

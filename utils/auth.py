@@ -1,7 +1,7 @@
 from functools import wraps
 from fastapi import HTTPException, Request
 from BD.dao import DAO
-from utils.jwt_token import verify_token;
+from utils.jwt_token import verify_token
 
 dao = DAO()
 

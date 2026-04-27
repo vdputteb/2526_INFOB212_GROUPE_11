@@ -1,11 +1,11 @@
-import {showClientOrders} from './show_commands.js';
-import {showClientReservations} from './show_reservations.js';
+import {showClientOrders} from './show_ventes.js';
+import {showClientlocations} from './show_locations.js';
 import {AddClient} from './add_client.js';
 import {setupModifyClient, addDeleteClientButton, addModifyClientButton} from './modify_client.js';
 import {AddVendeur} from './admin/add_vendeur.js';
 import {setupModifyVendeur, addModifyVendeurButton} from './admin/modify_vendeur.js';
-import {showVendeurOrders} from './admin/show_commands_vendeur.js';
-import {showVendeurReservations} from './admin/show_reservations_vendeur.js';
+import {showVendeurOrders} from './admin/show_ventes_vendeur.js';
+import {showVendeurlocations} from './admin/show_locations_vendeur.js';
 
 let currentClient = null;
 let currentVendeur = null;
@@ -266,11 +266,11 @@ function setupVendeurEventListeners() {
         });
     }
     
-    const viewReservationsBtn = document.getElementById('viewReservationsBtn');
-    if (viewReservationsBtn) {
-        viewReservationsBtn.addEventListener('click', async () => {
+    const viewlocationsBtn = document.getElementById('viewlocationsBtn');
+    if (viewlocationsBtn) {
+        viewlocationsBtn.addEventListener('click', async () => {
             if (currentClient) {
-                await showClientReservations();
+                await showClientlocations();
             } else {
                 alert('Veuillez d\'abord sélectionner un client');
             }
@@ -426,11 +426,11 @@ function setupAdminEventListeners() {
         });
     }
     
-    const viewVendeurReservationsBtn = document.getElementById('viewVendeurReservationsBtn');
-    if (viewVendeurReservationsBtn) {
-        viewVendeurReservationsBtn.addEventListener('click', async () => {
+    const viewVendeurlocationsBtn = document.getElementById('viewVendeurlocationsBtn');
+    if (viewVendeurlocationsBtn) {
+        viewVendeurlocationsBtn.addEventListener('click', async () => {
             if (currentVendeur) {
-                await showVendeurReservations();
+                await showVendeurlocations();
             } else {
                 alert('Veuillez d\'abord sélectionner un vendeur');
             }

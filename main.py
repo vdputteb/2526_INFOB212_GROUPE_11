@@ -130,6 +130,15 @@ async def basket(request: Request):
     )
 
 
+@app.get("/profile")
+async def profile(request: Request):
+
+    return templates.TemplateResponse(
+        request=request,
+        name="profile.html",
+    )
+
+
 @app.get("/logout")
 async def logout(request : Request):
     response = RedirectResponse(url="/auth")
@@ -303,7 +312,7 @@ async def get_clients():
 
 
 @app.post("/api/clients/select")
-async def select_client(request: Request, select_data: SelectClientRequest):
+async def select_client(select_data: SelectClientRequest):
     """Sélectionne un client pour la session"""
     client = dao.get_client_by_id(select_data.client_id)
     if not client:
@@ -409,7 +418,7 @@ async def get_vendeurs(request : Request):
 
 @app.post("/api/vendeurs/select")
 @require_role(["admin"])
-async def select_vendeur(request: Request, select_data: SelectVendeurRequest):
+async def select_vendeur(select_data: SelectVendeurRequest):
     """Sélectionne un vendeur pour la session"""
     vendeur = dao.get_vendeur_by_id(select_data.vendeurs_id)
     if not vendeur:
@@ -422,7 +431,7 @@ async def select_vendeur(request: Request, select_data: SelectVendeurRequest):
 
 @app.put("/api/modify/vendeur")
 @require_role(["admin"])
-async def modify_vendeur(request: Request, vendeur_data: dict):
+async def modify_vendeur(vendeur_data: dict):
     """
     Modifie un vendeur (le mot de passe est optionnel)
     """
@@ -541,37 +550,36 @@ async def get_broom(broom_id: int):
 
 # --- API Reservation (Location) ---
 
-@app.get("/api/reservations")
+@app.get("/api/locations")
 @require_role(["admin"])
-async def get_reservations():
+async def get_locations():
     """Récupère toutes les locations"""
-    return JSONResponse(dao.get_all_reservations())
+    return JSONResponse(dao.get_all_locations())
 
 
-@app.get("/api/reservations/client")
-async def get_reservations_by_client(request: Request):
+@app.get("/api/locations/client")
+async def get_locations_by_client(request: Request):
     """Récupère les locations du client sélectionné"""
     client_id = request.cookies.get("clientID")
     
     if not client_id:
         raise HTTPException(status_code=400, detail="No client selected")
     
-    return JSONResponse(dao.get_client_reservations(int(client_id)))
+    return JSONResponse(dao.get_client_locations(int(client_id)))
 
 
-@app.get("/api/reservations/vendeur")
-@require_role(["vendeur", "admin"])
-async def get_reservations_by_vendeur(request: Request):
+@app.get("/api/locations/vendeur")
+async def get_locations_by_vendeur(request: Request):
     """Récupère les locations gérées par le vendeur sélectionné"""
     vendeur_id = request.cookies.get("vendeurID")
     
     if not vendeur_id:
         raise HTTPException(status_code=400, detail="No salesperson selected")
     
-    return JSONResponse(dao.get_vendeur_reservations(int(vendeur_id)))
+    return JSONResponse(dao.get_vendeur_locations(int(vendeur_id)))
 
 
-@app.get("/api/reservations/check")
+@app.get("/api/locations/check")
 async def check_availability(broom_id: int, start_date: str, end_date: str):
     """Vérifie la disponibilité d'un balai"""
     try:
@@ -590,7 +598,7 @@ async def check_availability(broom_id: int, start_date: str, end_date: str):
         return JSONResponse({"available": False, "message": f"Error: {str(e)}"}, status_code=400)
 
 
-@app.post("/api/reservations")
+@app.post("/api/locations")
 async def create_reservation(request: Request, reservation: Reservation):
     """Crée une nouvelle location"""
     client_id = request.cookies.get("clientID")
@@ -613,7 +621,7 @@ async def create_reservation(request: Request, reservation: Reservation):
         raise HTTPException(status_code=500, detail=f"A problem occurred during the booking: {str(e)}")
 
 
-@app.delete("/api/reservations/{reservation_id}")
+@app.delete("/api/locations/{reservation_id}")
 async def delete_reservation(reservation_id: int):
     """Annule une location"""
     deleted = dao.delete_reservation(reservation_id)
@@ -624,37 +632,36 @@ async def delete_reservation(reservation_id: int):
 
 # --- API Commande (Vente) ---
 
-@app.get("/api/commandes")
+@app.get("/api/ventes")
 @require_role(["admin"])
-async def get_all_commandes():
-    """Récupère toutes les commandes"""
-    return JSONResponse(dao.get_all_commandes())
+async def get_all_ventes():
+    """Récupère toutes les ventes"""
+    return JSONResponse(dao.get_all_ventes())
 
 
-@app.get("/api/commandes/client")
-async def get_commandes_client(request: Request):
-    """Récupère les commandes du client sélectionné"""
+@app.get("/api/ventes/client")
+async def get_ventes_client(request: Request):
+    """Récupère les ventes du client sélectionné"""
     client_id = request.cookies.get("clientID")
     
     if not client_id:
         raise HTTPException(status_code=400, detail="No client selected")
     
-    return JSONResponse(dao.get_client_commandes(int(client_id)))
+    return JSONResponse(dao.get_client_ventes(int(client_id)))
 
 
-@app.get("/api/commandes/vendeur")
-@require_role(["vendeur", "admin"])
-async def get_commandes_vendeur(request: Request):
-    """Récupère les commandes gérées par le vendeur sélectionné"""
+@app.get("/api/ventes/vendeur")
+async def get_ventes_vendeur(request: Request):
+    """Récupère les ventes gérées par le vendeur sélectionné"""
     vendeur_id = request.cookies.get("vendeurID")
     
     if not vendeur_id:
         raise HTTPException(status_code=400, detail="No salesperson selected")
     
-    return JSONResponse(dao.get_vendeur_commandes(int(vendeur_id)))
+    return JSONResponse(dao.get_vendeur_ventes(int(vendeur_id)))
 
 
-@app.post("/api/commandes")
+@app.post("/api/ventes")
 async def create_commande(request: Request, commande_data: CreateCommandeRequest):
     """Crée une nouvelle commande d'achat"""
     client_id = request.cookies.get("clientID")
@@ -669,12 +676,175 @@ async def create_commande(request: Request, commande_data: CreateCommandeRequest
             "sale_date": commande_data.sale_date,
             "broom_ids": commande_data.broom_ids
         }
-        success = dao.add_commandes(commande_dict)
+        success = dao.add_ventes(commande_dict)
         if not success:
             raise HTTPException(status_code=500, detail="Failed to create order")
         return JSONResponse({"message": "Order made"}, status_code=201)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"A problem occurred during the order processing: {str(e)}")
+
+# --- ROUTES PROFIL EMPLOYÉ ---
+
+@app.get("/api/me")
+async def get_current_user(request: Request):
+    """Récupère les informations de l'utilisateur connecté"""
+    employee = dao.get_vendeur_by_id(request.state.user_id)
+    if not employee:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Correction: utiliser la bonne clé pour le rôle admin
+    # La colonne s'appelle 'is_patron' dans la base mais get_vendeur_by_id retourne les colonnes de EMPLOYEE
+    return JSONResponse({
+        "success": True,
+        "user": {
+            "id_employee": employee['id_employee'],
+            "name": employee['name'],
+            "surname": employee['surname'],
+            "login": employee['login'],
+            "mail": employee['mail_pro'],
+            "is_admin": employee.get('is_patron', 0) == 1,  # Utiliser .get() avec valeur par défaut
+            "telephones": [employee.get('tel1'), employee.get('tel2'), employee.get('tel3')]
+        }
+    })
+
+@app.get("/api/profile/ventes")
+async def get_profile_ventes(request: Request, page: int = 1, per_page: int = 10):
+    """Récupère les ventes de l'utilisateur connecté"""
+    ventes = dao.get_vendeur_ventes(request.state.user_id)
+    print(request.state.user_id)
+    
+    # Pagination
+    total = len(ventes)
+    start = (page - 1) * per_page
+    end = start + per_page
+    paginated = ventes[start:end]
+    
+    return JSONResponse({
+        "success": True,
+        "ventes": paginated,
+        "pagination": {
+            "current_page": page,
+            "per_page": per_page,
+            "total": total,
+            "total_pages": (total + per_page - 1) // per_page
+        }
+    })
+
+
+@app.get("/api/profile/locations")
+async def get_profile_locations(request: Request, page: int = 1, per_page: int = 10):
+    """Récupère les locations gérées par l'utilisateur"""
+    locations = dao.get_vendeur_locations(request.state.user_id)
+    
+    total = len(locations)
+    start = (page - 1) * per_page
+    end = start + per_page
+    
+    return JSONResponse({
+        "success": True,
+        "locations": locations[start:end],
+        "pagination": {
+            "current_page": page,
+            "per_page": per_page,
+            "total": total,
+            "total_pages": (total + per_page - 1) // per_page
+        }
+    })
+
+
+@app.post("/api/locations/validate-return")
+async def validate_return_location(request: Request, return_data: dict):
+    """Valide le retour d'un balai en location"""
+    commande_id = return_data.get("commandeId")
+    actual_end_date = return_data.get("actual_end_date")
+    
+    success = dao.validate_location_return(commande_id, actual_end_date, request.state.user_id)
+    if not success:
+        raise HTTPException(status_code=500, detail="Erreur lors de la validation du retour")
+    
+    return JSONResponse({"success": True, "message": "Retour validé"})
+
+
+@app.get("/api/balais/all")
+async def get_all_brooms():
+    """Récupère tous les balais (pour le formulaire de commande fournisseur)"""
+    brooms = dao.get_all_brooms()
+    return JSONResponse({"success": True, "balais": brooms})
+
+
+@app.get("/api/fournisseurs")
+async def get_fournisseurs():
+    """Récupère la liste des fournisseurs"""
+    fournisseurs = dao.get_all_fabricants()
+    return JSONResponse({"success": True, "fournisseurs": fournisseurs})
+
+
+@app.post("/api/commandes-fournisseur")
+async def create_commande_fournisseur(request: Request, commande_data: dict):
+    """Crée une commande fournisseur"""
+    data = {
+        "vendeur_id": request.state.user_id,
+        "fournisseur_id": commande_data.get("fournisseur_id"),
+        "command_date": commande_data.get("command_date"),
+        "expected_delivery_date": commande_data.get("expected_delivery_date"),
+        "items": commande_data.get("items", [])
+    }
+    
+    success = dao.create_commande_fournisseur(data)
+    if not success:
+        raise HTTPException(status_code=500, detail="Erreur lors de la création")
+    
+    return JSONResponse({"success": True, "message": "Commande créée"})
+
+
+@app.get("/api/profile/commandes-fournisseur")
+async def get_profile_commandes_fournisseur(request: Request, page: int = 1, per_page: int = 10):
+    """Récupère les commandes fournisseur de l'utilisateur"""
+    commandes = dao.get_vendeur_commandes_fournisseur(request.state.user_id)
+    
+    total = len(commandes)
+    start = (page - 1) * per_page
+    end = start + per_page
+    
+    return JSONResponse({
+        "success": True,
+        "commandes": commandes[start:end],
+        "pagination": {
+            "current_page": page,
+            "per_page": per_page,
+            "total": total,
+            "total_pages": (total + per_page - 1) // per_page
+        }
+    })
+
+
+@app.get("/api/profile/pending-approvals")
+@require_role(["admin"])
+async def get_pending_approvals(request: Request):
+    """Récupère les commandes fournisseur en attente d'approbation (admin uniquement)"""
+    commandes = dao.get_pending_approvals()
+    return JSONResponse({"success": True, "commandes": commandes})
+
+
+@app.put("/api/commandes-fournisseur/approve")
+@require_role(["admin"])
+async def approve_commande_fournisseur(approve_data: dict):
+    """Approuve ou modifie le statut d'une commande fournisseur (admin uniquement)"""
+    commande_id = approve_data.get("commandeId")
+    status = approve_data.get("status")
+    
+    success = dao.update_commande_fournisseur_status(commande_id, status)
+    if not success:
+        raise HTTPException(status_code=500, detail="Erreur lors de la mise à jour")
+    
+    return JSONResponse({"success": True, "message": "Commande mise à jour"})
+
+
+@app.get("/api/profile/stats")
+async def get_profile_stats(request: Request):
+    """Récupère les statistiques de l'utilisateur"""
+    stats = dao.get_vendeur_stats(request.state.user_id)
+    return JSONResponse({"success": True, "stats": stats})
 
 
 # --- Lancement ---
