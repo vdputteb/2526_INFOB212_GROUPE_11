@@ -790,6 +790,12 @@ async def create_commande_fournisseur(request: Request, commande_data: dict):
         "items": commande_data.get("items", [])
     }
     
+    # Validation : vérifier que tous les balais appartiennent au fournisseur sélectionné
+    for item in data["items"]:
+        broom = dao.get_broom_by_id(item["broom_id"])
+        if not broom or broom["id_fabricant"] != data["fournisseur_id"]:
+            raise HTTPException(status_code=400, detail=f"Le balai {item['broom_id']} n'appartient pas au fournisseur sélectionné")
+    
     success = dao.create_commande_fournisseur(data)
     if not success:
         raise HTTPException(status_code=500, detail="Erreur lors de la création")

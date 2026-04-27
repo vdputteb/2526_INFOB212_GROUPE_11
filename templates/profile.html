@@ -21,7 +21,7 @@
             <div class="profile-actions">
                 <!-- Bouton Modifier mon profil masqué -->
                 <button id="editProfileBtn" class="btn-edit" style="display: none;">✏️ Modifier mon profil</button>
-                <button id="refreshDataBtn" class="btn-refresh">🔄 Actualiser</button>
+                <button id="refreshDataBtn" class="btn-refresh"> Actualiser</button>
             </div>
         </div>
 
@@ -30,7 +30,6 @@
             <button class="tab-btn active" data-tab="ventes">📦 Mes Ventes</button>
             <button class="tab-btn" data-tab="locations">📅 Mes Locations</button>
             <button class="tab-btn" data-tab="fournisseur">🏭 Commandes Fournisseur</button>
-            <button class="tab-btn" data-tab="stats">📊 Statistiques</button>
         </div>
 
         <!--  TAB VENTES  -->
@@ -176,11 +175,10 @@
             <h3>🪄 Balais à commander</h3>
             <div id="cfBalaisList">
                 <div class="broom-order-row">
-                    <select name="broomId[]" class="cfBroomSelect" required>
-                        <option value="">Sélectionner un balai</option>
+                    <select name="broomId[]" class="cfBroomSelect" required disabled>
+                        <option value="">Sélectionner d'abord un fournisseur</option>
                     </select>
                     <input type="number" name="quantity[]" placeholder="Quantité" class="cfQuantity" min="1" value="1">
-                    <input type="number" name="price[]" placeholder="Prix unitaire (€)" class="cfPrice" step="0.01" required>
                     <button type="button" class="remove-broom-btn">🗑️</button>
                 </div>
             </div>
@@ -194,6 +192,17 @@
         </form>
     </div>
 </div>
+
+<!-- Template pour une ligne de commande fournisseur -->
+<template id="broomOrderTemplate">
+    <div class="broom-order-row">
+        <select name="broomId[]" class="cfBroomSelect" required>
+            <option value="">Sélectionner un balai</option>
+        </select>
+        <input type="number" name="quantity[]" placeholder="Quantité" class="cfQuantity" min="1" value="1">
+        <button type="button" class="remove-broom-btn">🗑️</button>
+    </div>
+</template>
 
 <!--  MODAL APPROBATION COMMANDE (ADMIN)  -->
 <div id="approveCommandeModal" class="modal">
@@ -235,18 +244,6 @@
         </form>
     </div>
 </div>
-
-<!-- Template pour une ligne de commande fournisseur -->
-<template id="broomOrderTemplate">
-    <div class="broom-order-row">
-        <select name="broomId[]" class="cfBroomSelect" required>
-            <option value="">Sélectionner un balai</option>
-        </select>
-        <input type="number" name="quantity[]" placeholder="Quantité" class="cfQuantity" min="1" value="1">
-        <input type="number" name="price[]" placeholder="Prix unitaire (€)" class="cfPrice" step="0.01" required>
-        <button type="button" class="remove-broom-btn">🗑️</button>
-    </div>
-</template>
 
 <!-- Template pour une ligne de vente -->
 <template id="venteTemplate">

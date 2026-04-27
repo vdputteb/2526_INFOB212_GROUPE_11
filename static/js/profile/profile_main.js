@@ -6,7 +6,7 @@ import { loadLocations, validateReturn, getLocationsData } from './profil_locati
 let currentUser = null;
 let currentUserRole = null;
 
-// ==================== CHARGEMENT PROFIL UTILISATEUR ====================
+//  CHARGEMENT PROFIL UTILISATEUR 
 async function loadUserInfo() {
     try {
         const response = await apiRequest('/me', 'GET');
@@ -32,7 +32,7 @@ async function loadUserInfo() {
     }
 }
 
-// ==================== MODALES ====================
+//  MODALES 
 function openReturnModal(data) {
     const modal = document.getElementById('validateReturnModal');
     if (!modal) return;
@@ -62,16 +62,16 @@ async function openCommandeFournisseurModal() {
             fournisseurSelect.appendChild(option);
         });
         
-        const broomSelects = document.querySelectorAll('.cfBroomSelect');
-        broomSelects.forEach(select => {
-            clearElement(select);
-            select.appendChild(createElement('option', '', 'Sélectionner un balai'));
-            balaisRes.balais.forEach(b => {
-                const option = createElement('option', '', `${b.Libelle} - ${formatCurrency(b.sale_price)}`);
-                option.value = b.id_balai;
-                select.appendChild(option);
-            });
-        });
+        // Stocker tous les balais dans une variable globale pour filtrage
+        window.allBroems = balaisRes.balais;
+        
+        // Initialiser les sélecteurs de balais (désactivés jusqu'à sélection fournisseur)
+        initBroomSelectors();
+        
+        // Ajouter écouteur pour filtrage par fournisseur
+        fournisseurSelect.removeEventListener('change', window.supplierFilterHandler);
+        window.supplierFilterHandler = () => filterBroemsBySupplier(fournisseurSelect.value);
+        fournisseurSelect.addEventListener('change', window.supplierFilterHandler);
         
         document.getElementById('cfCommandDate').valueAsDate = new Date();
         const expectedDate = new Date();
@@ -83,6 +83,40 @@ async function openCommandeFournisseurModal() {
         showNotification('Erreur lors du chargement des données', 'error');
         console.error(error);
     }
+}
+
+function initBroomSelectors() {
+    const broomSelects = document.querySelectorAll('.cfBroomSelect');
+    broomSelects.forEach(select => {
+        clearElement(select);
+        select.appendChild(createElement('option', '', 'Sélectionner d\'abord un fournisseur'));
+        select.disabled = true;
+    });
+}
+
+function filterBroemsBySupplier(supplierId) {
+    if (!supplierId || !window.allBroems) {
+        return;
+    }
+    
+    // Filtrer les balais par fournisseur
+    const filteredBroems = window.allBroems.filter(b => b.id_fabricant === parseInt(supplierId));
+    
+    // Mettre à jour tous les sélecteurs de balais
+    const broomSelects = document.querySelectorAll('.cfBroomSelect');
+    broomSelects.forEach(select => {
+        clearElement(select);
+        select.disabled = false;
+        select.appendChild(createElement('option', '', 'Sélectionner un balai'));
+        
+        filteredBroems.forEach(b => {
+            const option = createElement('option', '', `${b.Libelle} - Prix vente: ${formatCurrency(b.sale_price)}`);
+            option.value = b.id_balai;
+            option.dataset.locationPrice = b.location_price;
+            option.dataset.salePrice = b.sale_price;
+            select.appendChild(option);
+        });
+    });
 }
 
 function openApproveModal(data) {
@@ -105,7 +139,7 @@ function openApproveModal(data) {
     modal.style.display = 'flex';
 }
 
-// ==================== VALIDATION FORMULAIRES ====================
+//  VALIDATION FORMULAIRES 
 async function handleValidateReturn(event) {
     const success = await validateReturn(event);
     if (success) {
@@ -116,26 +150,44 @@ async function handleValidateReturn(event) {
 async function createCommandeFournisseur(event) {
     event.preventDefault();
     
+    const supplierId = document.getElementById('cfFournisseurId').value;
+    if (!supplierId) {
+        showNotification('Veuillez sélectionner un fournisseur', 'error');
+        return;
+    }
+    
     const broomRows = document.querySelectorAll('.broom-order-row');
-    const items = [];
+    const broomQuantities = new Map(); // Pour grouper les balais identiques
     
     broomRows.forEach(row => {
         const broomId = row.querySelector('.cfBroomSelect').value;
         const quantity = parseInt(row.querySelector('.cfQuantity').value);
-        const price = parseFloat(row.querySelector('.cfPrice').value);
         
-        if (broomId && quantity > 0 && price > 0) {
-            items.push({ broom_id: parseInt(broomId), quantity, price });
+        if (broomId && quantity > 0) {
+            if (broomQuantities.has(broomId)) {
+                broomQuantities.set(broomId, broomQuantities.get(broomId) + quantity);
+            } else {
+                broomQuantities.set(broomId, quantity);
+            }
         }
     });
     
-    if (items.length === 0) {
+    if (broomQuantities.size === 0) {
         showNotification('Ajoutez au moins un balai à la commande', 'error');
         return;
     }
     
+    // Convertir en tableau d'items
+    const items = [];
+    for (let [broomId, quantity] of broomQuantities) {
+        items.push({ 
+            broom_id: parseInt(broomId), 
+            quantity: quantity
+        });
+    }
+    
     const data = {
-        fournisseur_id: parseInt(document.getElementById('cfFournisseurId').value),
+        fournisseur_id: parseInt(supplierId),
         command_date: document.getElementById('cfCommandDate').value,
         expected_delivery_date: document.getElementById('cfExpectedDeliveryDate').value,
         items: items
@@ -179,12 +231,26 @@ function addBroomRow() {
     const template = document.getElementById('broomOrderTemplate');
     const clone = template.content.cloneNode(true);
     
-    const firstSelect = document.querySelector('.cfBroomSelect');
-    if (firstSelect) {
-        const newSelect = clone.querySelector('.cfBroomSelect');
-        Array.from(firstSelect.options).forEach(opt => {
-            newSelect.appendChild(new Option(opt.text, opt.value));
+    const currentSupplier = document.getElementById('cfFournisseurId').value;
+    const newSelect = clone.querySelector('.cfBroomSelect');
+    
+    if (currentSupplier && window.allBroems) {
+        const filteredBroems = window.allBroems.filter(b => b.id_fabricant === parseInt(currentSupplier));
+        clearElement(newSelect);
+        newSelect.disabled = false;
+        newSelect.appendChild(createElement('option', '', 'Sélectionner un balai'));
+        
+        filteredBroems.forEach(b => {
+            const option = createElement('option', '', `${b.Libelle} - Prix vente: ${formatCurrency(b.sale_price)}`);
+            option.value = b.id_balai;
+            option.dataset.locationPrice = b.location_price;
+            option.dataset.salePrice = b.sale_price;
+            newSelect.appendChild(option);
         });
+    } else {
+        clearElement(newSelect);
+        newSelect.disabled = true;
+        newSelect.appendChild(createElement('option', '', 'Sélectionner d\'abord un fournisseur'));
     }
     
     const removeBtn = clone.querySelector('.remove-broom-btn');
@@ -197,7 +263,7 @@ function addBroomRow() {
     document.getElementById('cfBalaisList').appendChild(clone);
 }
 
-// ==================== RAFRAÎCHISSEMENT DONNÉES ====================
+//  RAFRAÎCHISSEMENT DONNÉES 
 async function refreshAllData() {
     await loadVentes(1, openReturnModal);
     await loadLocations(1, openReturnModal);
@@ -206,7 +272,7 @@ async function refreshAllData() {
     showNotification('Données actualisées', 'success');
 }
 
-// ==================== ONGLETS ====================
+//  ONGLETS 
 function setupTabs() {
     const tabs = document.querySelectorAll('.tab-btn');
     tabs.forEach(tab => {
@@ -223,7 +289,7 @@ function setupTabs() {
     });
 }
 
-// ==================== ÉVÈNEMENTS ====================
+//  ÉVÈNEMENTS 
 function setupEventListeners() {
     const editProfileBtn = document.getElementById('editProfileBtn');
     if (editProfileBtn) editProfileBtn.style.display = 'none';
@@ -243,7 +309,7 @@ function setupEventListeners() {
     });
 }
 
-// ==================== INITIALISATION ====================
+//  INITIALISATION 
 document.addEventListener('DOMContentLoaded', async () => {
     await loadUserInfo();
     setupEventListeners();
@@ -253,4 +319,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     await loadLocations(1, openReturnModal);
     await loadFournisseurCommandes();
     
+    // Afficher la section d'approbation si admin
+    if (currentUserRole === 'admin') {
+        const pendingSection = document.getElementById('pendingApprovalSection');
+        if (pendingSection) pendingSection.style.display = 'block';
+        await loadPendingApprovals(openApproveModal);
+    }
 });

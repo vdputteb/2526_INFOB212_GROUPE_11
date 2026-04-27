@@ -17,6 +17,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Variable pour suivre la validité de l'email
     let isEmailValid = true;
+
+    document.getElementById("profil-link").style.display = "none";
     
     // Fonction pour supprimer un message d'erreur existant
     function removeErrorMessage(inputElement) {
