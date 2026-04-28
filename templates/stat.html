@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<link rel="stylesheet" href="{{ url_for('static', path='css/stats.css') }}">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', path='js/stats/stats_main.js') }}"></script>
+
+<div class="stats-container">
+    <div class="stats-header">
+        <h1>📊 Tableau de bord statistiques</h1>
+        <p>Analyse des ventes, locations et performance des vendeurs</p>
+    </div>
+
+    <div class="filters">
+        <div class="filter-group">
+            <label>Période</label>
+            <select id="period-select">
+                <option value="all">Toutes les périodes</option>
+                <option value="last7">7 derniers jours</option>
+                <option value="last30">30 derniers jours</option>
+                <option value="last90">90 derniers jours</option>
+                <option value="year">Cette année</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Date de début</label>
+            <input type="date" id="start-date">
+        </div>
+        <div class="filter-group">
+            <label>Date de fin</label>
+            <input type="date" id="end-date">
+        </div>
+        <div class="filter-group">
+            <button class="btn-refresh" id="refresh-btn">🔄 Actualiser</button>
+        </div>
+    </div>
+
+    <div id="stats-content">
+        <div class="loading">Chargement des statistiques...</div>
+    </div>
+</div>
+
+{% endblock %}

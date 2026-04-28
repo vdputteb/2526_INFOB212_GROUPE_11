@@ -1,5 +1,5 @@
 from os import getenv
-from datetime import date
+from datetime import date, datetime, timedelta
 import uvicorn
 import bcrypt
 from fastapi import FastAPI, HTTPException, Request
@@ -136,6 +136,15 @@ async def profile(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="profile.html",
+    )
+
+@app.get("/stats")
+@require_role(["admin"])
+async def stat(request: Request):
+
+    return templates.TemplateResponse(
+        request=request,
+        name="stat.html",
     )
 
 
@@ -692,8 +701,7 @@ async def get_current_user(request: Request):
     if not employee:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Correction: utiliser la bonne clé pour le rôle admin
-    # La colonne s'appelle 'is_patron' dans la base mais get_vendeur_by_id retourne les colonnes de EMPLOYEE
+    print(employee)
     return JSONResponse({
         "success": True,
         "user": {
@@ -702,7 +710,7 @@ async def get_current_user(request: Request):
             "surname": employee['surname'],
             "login": employee['login'],
             "mail": employee['mail_pro'],
-            "is_admin": employee.get('is_patron', 0) == 1,  # Utiliser .get() avec valeur par défaut
+            "is_admin": int(employee['is_patron']), 
             "telephones": [employee.get('tel1'), employee.get('tel2'), employee.get('tel3')]
         }
     })
@@ -850,6 +858,44 @@ async def approve_commande_fournisseur(approve_data: dict):
 async def get_profile_stats(request: Request):
     """Récupère les statistiques de l'utilisateur"""
     stats = dao.get_vendeur_stats(request.state.user_id)
+    return JSONResponse({"success": True, "stats": stats})
+
+
+@app.get("/api/admin/stats")
+@require_role(["admin"])
+async def get_admin_stats(request: Request, period: str = "all", start_date: str = None, end_date: str = None):
+    """Récupère les statistiques globales pour l'administrateur"""
+    
+    # Si des dates sont fournies, filtrer sur cette période
+    if start_date and end_date:
+        stats = dao.get_admin_stats_by_period(start_date, end_date)
+    else:
+        stats = dao.get_admin_stats()
+        
+        # Appliquer le filtre de période si nécessaire
+        if period != "all":
+            today = date.today()
+            if period == "last7":
+                start = today - timedelta(days=7)
+            elif period == "last30":
+                start = today - timedelta(days=30)
+            elif period == "last90":
+                start = today - timedelta(days=90)
+            elif period == "year":
+                start = date(today.year, 1, 1)
+            else:
+                start = None
+            
+            if start:
+                # Filtrer les ventes par mois sur la période
+                stats['ventes_par_mois'] = [
+                    m for m in stats.get('ventes_par_mois', [])
+                    if datetime.strptime(m['month'] + '-01', '%Y-%m-%d').date() >= start
+                ]
+    
+    # Ajouter les statistiques des locations par statut
+    stats['location_status'] = dao.get_location_status_stats()
+    
     return JSONResponse({"success": True, "stats": stats})
 
 

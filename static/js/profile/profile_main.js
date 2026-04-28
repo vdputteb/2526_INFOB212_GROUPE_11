@@ -324,5 +324,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         const pendingSection = document.getElementById('pendingApprovalSection');
         if (pendingSection) pendingSection.style.display = 'block';
         await loadPendingApprovals(openApproveModal);
+
+        const button = document.createElement('button');
+
+        button.className = 'tab-btn';
+        button.setAttribute('data-tab', 'fournisseur');
+        button.textContent = '📈 Statistiques';
+
+        button.addEventListener('click', () => {
+        window.location.href = '/stats';
+        });
+
+        const container = document.getElementById('profile-tabs');
+        if (container) {
+            container.appendChild(button);
+        }
     }
 });
