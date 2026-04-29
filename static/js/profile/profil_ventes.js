@@ -3,7 +3,7 @@ import { setupPagination } from './profile_ui.js';
 
 let ventesData = [];
 
-// ==================== CHARGEMENT DES VENTES ====================
+//  CHARGEMENT DES VENTES 
 export async function loadVentes(page = 1, onReturnClick) {
     try {
         const response = await apiRequest(`/profile/ventes?page=${page}`, 'GET');
@@ -25,7 +25,7 @@ export async function loadVentes(page = 1, onReturnClick) {
     }
 }
 
-// ==================== RENDU DES VENTES ====================
+//  RENDU DES VENTES 
 function renderVentes(ventes, containerId) {
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -94,20 +94,20 @@ function groupVentesByCommande(ventes) {
         group.items.push({
             broom_name: vente.broom_name,
             quantity: 1,
-            price: vente.total_amount / group.items.length || vente.total_amount
+            price: vente.total_amount / (group.items.length + 1) || vente.total_amount
         });
     });
     
     return Array.from(grouped.values());
 }
 
-// ==================== COMMANDES FOURNISSEUR ====================
-export async function loadFournisseurCommandes(page = 1) {
+//  COMMANDES FOURNISSEUR 
+export async function loadFournisseurCommandes(page = 1, refreshCallback) {
     try {
         const response = await apiRequest(`/profile/commandes-fournisseur?page=${page}`, 'GET');
         if (response.success) {
             renderFournisseurCommandes(response.commandes, 'fournisseurList');
-            setupPagination('fournisseurPagination', response.pagination, loadFournisseurCommandes);
+            setupPagination('fournisseurPagination', response.pagination, (p) => loadFournisseurCommandes(p, refreshCallback));
         } else {
             throw new Error('Erreur lors du chargement des commandes fournisseur');
         }
@@ -163,8 +163,8 @@ function renderFournisseurCommandes(commandes, containerId) {
     });
 }
 
-// ==================== COMMANDES EN ATTENTE (ADMIN) ====================
-export async function loadPendingApprovals(onApproveClick) {
+//  COMMANDES EN ATTENTE (ADMIN) 
+export async function loadPendingApprovals(onApproveClick, refreshCallback) {
     try {
         const response = await apiRequest('/profile/pending-approvals', 'GET');
         if (response.success && response.commandes && response.commandes.length > 0) {
@@ -218,7 +218,7 @@ function renderPendingApprovals(commandes, onApproveClick) {
         }
         
         const actionsDiv = clone.querySelector('.fournisseur-actions');
-        const approveBtn = createElement('button', 'btn-approve', '✅ Approuver / Gérer');
+        const approveBtn = createElement('button', 'btn-approve', ' Approuver / Gérer');
         approveBtn.dataset.commandeId = cmd.id_commande || cmd.id;
         approveBtn.dataset.fournisseur = cmd.fournisseur_name || cmd.supplier_name || 'Fournisseur';
         approveBtn.dataset.commandDate = cmd.command_date;
@@ -231,5 +231,5 @@ function renderPendingApprovals(commandes, onApproveClick) {
     });
 }
 
-// ==================== EXPORT ====================
+//  EXPORT 
 export function getVentesData() { return ventesData; }

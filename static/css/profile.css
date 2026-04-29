@@ -909,3 +909,128 @@ canvas {
     background: var(--success-color);
     color: white;
 }
+
+/* ==================== MODALES ==================== */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(5px);
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 650px;
+    max-height: 85vh;
+    overflow-y: auto;
+    animation: slideIn 0.3s ease;
+}
+
+/* ⚠️ AJOUTER CES LIGNES - padding intérieur pour tout le contenu */
+.modal-content > :not(.modal-header):not(hr) {
+    margin-left: 24px;
+    margin-right: 24px;
+}
+
+/* Le header a déjà son propre padding, on le garde */
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    background: linear-gradient(135deg, var(--secondary-color), #34495e);
+    border-radius: 20px 20px 0 0;
+}
+
+/* Pour les titres h3 à l'intérieur */
+.modal-content h3 {
+    color: var(--secondary-color);
+    font-size: 18px;
+    margin: 20px 0 15px;
+}
+
+/* Pour les hr (séparateurs) */
+.modal-content hr {
+    margin: 20px 24px;
+    border: none;
+    border-top: 1px solid var(--gray-medium);
+}
+
+/* Pour le formulaire dans la modale */
+.modal-content form {
+    padding: 0 24px;
+}
+
+/* Pour les éléments qui doivent avoir un padding normal sans marge */
+.modal-content .info-text,
+.modal-content .items-list,
+.modal-content #cfBalaisList {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+/* Ajustement pour les boutons de la modale */
+.modal-buttons {
+    display: flex;
+    gap: 15px;
+    margin-top: 25px;
+    padding: 0 0 20px 0;
+    border-top: 1px solid var(--gray-medium);
+}
+
+/* Pour le conteneur des balais dans commande fournisseur */
+.broom-order-row {
+    display: grid;
+    grid-template-columns: 2fr 0.8fr 1fr auto;
+    gap: 10px;
+    margin-bottom: 10px;
+    align-items: center;
+}
+
+/* Garder la largeur des selects et inputs dans leur conteneur */
+.broom-order-row select,
+.broom-order-row input {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid var(--gray-medium);
+    border-radius: 8px;
+    font-size: 14px;
+    box-sizing: border-box;
+}
+
+/* Ajustement responsive */
+@media (max-width: 968px) {
+    .modal-content > :not(.modal-header):not(hr) {
+        margin-left: 16px;
+        margin-right: 16px;
+    }
+    
+    .modal-content form {
+        padding: 0 16px;
+    }
+    
+    .modal-content hr {
+        margin: 20px 16px;
+    }
+}
+
+@media (max-width: 600px) {
+    .modal-content > :not(.modal-header):not(hr) {
+        margin-left: 12px;
+        margin-right: 12px;
+    }
+    
+    .modal-content form {
+        padding: 0 12px;
+    }
+    
+    .modal-content hr {
+        margin: 20px 12px;
+    }
+}

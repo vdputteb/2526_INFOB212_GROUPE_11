@@ -3,7 +3,7 @@ import { setupPagination } from './profile_ui.js';
 
 let locationsData = [];
 
-// ==================== CHARGEMENT DES LOCATIONS ====================
+//  CHARGEMENT DES LOCATIONS 
 export async function loadLocations(page = 1, onReturnClick) {
     try {
         const response = await apiRequest(`/profile/locations?page=${page}`, 'GET');
@@ -30,7 +30,7 @@ export async function loadLocations(page = 1, onReturnClick) {
     }
 }
 
-// ==================== RENDU DES LOCATIONS ====================
+//  RENDU DES LOCATIONS 
 function renderLocations(locations, containerId, showReturnButton, onReturnClick) {
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -47,7 +47,6 @@ function renderLocations(locations, containerId, showReturnButton, onReturnClick
     locations.forEach(location => {
         const clone = template.content.cloneNode(true);
         
-        // Période de location
         clone.querySelector('.location-period').textContent = `${formatDate(location.begin_date)} → ${formatDate(location.end_date)}`;
         
         // Status avec classe CSS appropriée
@@ -80,8 +79,8 @@ function renderLocations(locations, containerId, showReturnButton, onReturnClick
     });
 }
 
-// ==================== VALIDATION DE RETOUR ====================
-export async function validateReturn(event) {
+//  VALIDATION DE RETOUR 
+export async function validateReturn(event, refreshCallback) {
     event.preventDefault();
     
     const data = {
@@ -95,6 +94,10 @@ export async function validateReturn(event) {
         if (response.success) {
             showNotification('Retour validé avec succès', 'success');
             document.getElementById('validateReturnModal').style.display = 'none';
+            
+            // Rafraîchir les données après validation
+            if (refreshCallback) await refreshCallback();
+            
             return true;
         } else {
             throw new Error(response.message || 'Erreur lors de la validation');
@@ -105,5 +108,5 @@ export async function validateReturn(event) {
     }
 }
 
-// ==================== EXPORT ====================
+//  EXPORT 
 export function getLocationsData() { return locationsData; }

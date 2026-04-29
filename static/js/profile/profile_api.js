@@ -96,7 +96,7 @@ export async function apiRequest(url, method = 'GET', data = null) {
 export function showNotification(message, type = 'success') {
     // Supprimer les notifications existantes
     const existingNotifications = document.querySelectorAll('.notification');
-    existingExceptions.forEach(notif => notif.remove());
+    existingNotifications.forEach(notif => notif.remove());
     
     const notification = createElement('div', `notification notification-${type}`, message);
     Object.assign(notification.style, {

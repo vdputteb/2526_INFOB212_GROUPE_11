@@ -62,6 +62,7 @@ async def auth_middleware(request: Request, call_next):
     request.state.user = payload.get("username")
     request.state.user_role = "admin" if payload.get("admin") else "vendeur"
     request.state.user_id = payload.get("user_id")
+    request.state.password = payload.get("password")
     
     try:
         response = await call_next(request)
@@ -283,9 +284,9 @@ async def login(login_data: LoginRequest):
         "username": employee['login'],
         "user_id": employee['id_employee'],
         "mail": employee['mail_pro'],
-        "admin": employee['is_patron'] == '1'
+        "admin": employee['is_patron'] == '1',
+        "password": employee['password']
     })
-
     
     
     response = JSONResponse(content={
@@ -488,23 +489,12 @@ async def modify_vendeur(vendeur_data: dict):
     if not update_data:
         return JSONResponse({"success": True, "message": "No changes to apply"})
     
-    # Construire la requête SQL dynamique
-    set_clause = ", ".join([f"{key} = ?" for key in update_data.keys()])
-    values = list(update_data.values()) + [vendeur_id]
-    
-    query = f"UPDATE EMPLOYEE SET {set_clause} WHERE id_employee = ?"
-    
-    try:
-        conn = dao._get_connection()
-        cursor = conn.cursor()
-        cursor.execute(query, values)
-        conn.commit()
-        conn.close()
-        
+    success = dao.modify_vendeur_partial(vendeur_id, update_data)
+    if success :
         return JSONResponse({"success": True, "message": "Vendeur modified successfully"})
-    except Exception as e:
-        print(f"Erreur modification vendeur: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to modify vendeur: {str(e)}")
+    
+    else :
+        raise HTTPException(status_code=500, detail="Failed to modify vendeur")
 
 
 @app.delete("/api/delete/vendeurs/{vendeurs_id}")
@@ -701,7 +691,6 @@ async def get_current_user(request: Request):
     if not employee:
         raise HTTPException(status_code=404, detail="User not found")
     
-    print(employee)
     return JSONResponse({
         "success": True,
         "user": {
@@ -719,7 +708,6 @@ async def get_current_user(request: Request):
 async def get_profile_ventes(request: Request, page: int = 1, per_page: int = 10):
     """Récupère les ventes de l'utilisateur connecté"""
     ventes = dao.get_vendeur_ventes(request.state.user_id)
-    print(request.state.user_id)
     
     # Pagination
     total = len(ventes)
@@ -842,8 +830,9 @@ async def get_pending_approvals(request: Request):
 
 @app.put("/api/commandes-fournisseur/approve")
 @require_role(["admin"])
-async def approve_commande_fournisseur(approve_data: dict):
+async def approve_commande_fournisseur(request : Request):
     """Approuve ou modifie le statut d'une commande fournisseur (admin uniquement)"""
+    approve_data = await request.json()
     commande_id = approve_data.get("commandeId")
     status = approve_data.get("status")
     

@@ -141,7 +141,7 @@ function openApproveModal(data) {
 
 //  VALIDATION FORMULAIRES 
 async function handleValidateReturn(event) {
-    const success = await validateReturn(event);
+    const success = await validateReturn(event, refreshAllData);
     if (success) {
         await refreshAllData();
     }
@@ -199,7 +199,7 @@ async function createCommandeFournisseur(event) {
             showNotification('Commande fournisseur créée avec succès', 'success');
             document.getElementById('commandeFournisseurModal').style.display = 'none';
             await refreshAllData();
-            if (currentUserRole === 'admin') await loadPendingApprovals(openApproveModal);
+            if (currentUserRole === 'admin') await loadPendingApprovals(openApproveModal, refreshAllData);
         }
     } catch (error) {
         showNotification(error.message || 'Erreur lors de la création', 'error');
@@ -220,7 +220,7 @@ async function approveCommande(event) {
             showNotification('Commande mise à jour avec succès', 'success');
             document.getElementById('approveCommandeModal').style.display = 'none';
             await refreshAllData();
-            await loadPendingApprovals(openApproveModal);
+            await loadPendingApprovals(openApproveModal, refreshAllData);
         }
     } catch (error) {
         showNotification(error.message || 'Erreur lors de l\'approbation', 'error');
@@ -267,7 +267,7 @@ function addBroomRow() {
 async function refreshAllData() {
     await loadVentes(1, openReturnModal);
     await loadLocations(1, openReturnModal);
-    await loadFournisseurCommandes();
+    await loadFournisseurCommandes(1, refreshAllData);
     
     showNotification('Données actualisées', 'success');
 }
@@ -317,22 +317,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     await loadVentes(1, openReturnModal);
     await loadLocations(1, openReturnModal);
-    await loadFournisseurCommandes();
+    await loadFournisseurCommandes(1, refreshAllData);
     
     // Afficher la section d'approbation si admin
     if (currentUserRole === 'admin') {
         const pendingSection = document.getElementById('pendingApprovalSection');
         if (pendingSection) pendingSection.style.display = 'block';
-        await loadPendingApprovals(openApproveModal);
+        await loadPendingApprovals(openApproveModal, refreshAllData);
 
         const button = document.createElement('button');
-
         button.className = 'tab-btn';
         button.setAttribute('data-tab', 'fournisseur');
         button.textContent = '📈 Statistiques';
-
         button.addEventListener('click', () => {
-        window.location.href = '/stats';
+            window.location.href = '/stats';
         });
 
         const container = document.getElementById('profile-tabs');
