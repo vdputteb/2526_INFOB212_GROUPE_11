@@ -520,7 +520,7 @@ async def delete_vendeur(request: Request, vendeurs_id: int):
     return JSONResponse({"success": True, "message": f"Salesperson {vendeurs_id} successfully deleted"})
 
 
-# --- API Catalogue ---
+# --- API Balai ---
 
 @app.get("/api/catalogue")
 async def get_catalogue(request: Request):
@@ -547,7 +547,14 @@ async def get_broom(broom_id: int):
     return JSONResponse(broom)
 
 
-# --- API Reservation (Location) ---
+@app.get("/api/balais/all")
+async def get_all_brooms():
+    """Récupère tous les balais (pour le formulaire de commande fournisseur)"""
+    brooms = dao.get_all_brooms()
+    return JSONResponse({"success": True, "balais": brooms})
+
+
+# --- API Location ---
 
 @app.get("/api/locations")
 @require_role(["admin"])
@@ -597,6 +604,19 @@ async def check_availability(broom_id: int, start_date: str, end_date: str):
         return JSONResponse({"available": False, "message": f"Error: {str(e)}"}, status_code=400)
 
 
+@app.post("/api/locations/validate-return")
+async def validate_return_location( return_data: dict):
+    """Valide le retour d'un balai en location"""
+    commande_id = return_data.get("commandeId")
+    actual_end_date = return_data.get("actual_end_date")
+    
+    success = dao.validate_location_return(commande_id, actual_end_date)
+    if not success:
+        raise HTTPException(status_code=500, detail="Erreur lors de la validation du retour")
+    
+    return JSONResponse({"success": True, "message": "Retour validé"})
+
+
 @app.post("/api/locations")
 async def create_reservation(request: Request, reservation: Reservation):
     """Crée une nouvelle location"""
@@ -629,7 +649,7 @@ async def delete_reservation(reservation_id: int):
     return JSONResponse({"message": "Booking canceled"})
 
 
-# --- API Commande (Vente) ---
+# --- API Vente ---
 
 @app.get("/api/ventes")
 @require_role(["admin"])
@@ -682,7 +702,7 @@ async def create_commande(request: Request, commande_data: CreateCommandeRequest
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"A problem occurred during the order processing: {str(e)}")
 
-# --- ROUTES PROFIL EMPLOYÉ ---
+# --- API Profil ---
 
 @app.get("/api/me")
 async def get_current_user(request: Request):
@@ -748,25 +768,7 @@ async def get_profile_locations(request: Request, page: int = 1, per_page: int =
     })
 
 
-@app.post("/api/locations/validate-return")
-async def validate_return_location(request: Request, return_data: dict):
-    """Valide le retour d'un balai en location"""
-    commande_id = return_data.get("commandeId")
-    actual_end_date = return_data.get("actual_end_date")
-    
-    success = dao.validate_location_return(commande_id, actual_end_date, request.state.user_id)
-    if not success:
-        raise HTTPException(status_code=500, detail="Erreur lors de la validation du retour")
-    
-    return JSONResponse({"success": True, "message": "Retour validé"})
-
-
-@app.get("/api/balais/all")
-async def get_all_brooms():
-    """Récupère tous les balais (pour le formulaire de commande fournisseur)"""
-    brooms = dao.get_all_brooms()
-    return JSONResponse({"success": True, "balais": brooms})
-
+# --- API Commande Fournisseur ---
 
 @app.get("/api/fournisseurs")
 async def get_fournisseurs():
@@ -822,7 +824,7 @@ async def get_profile_commandes_fournisseur(request: Request, page: int = 1, per
 
 @app.get("/api/profile/pending-approvals")
 @require_role(["admin"])
-async def get_pending_approvals(request: Request):
+async def get_pending_approvals():
     """Récupère les commandes fournisseur en attente d'approbation (admin uniquement)"""
     commandes = dao.get_pending_approvals()
     return JSONResponse({"success": True, "commandes": commandes})
@@ -843,6 +845,8 @@ async def approve_commande_fournisseur(request : Request):
     return JSONResponse({"success": True, "message": "Commande mise à jour"})
 
 
+# --- API Stats ---
+
 @app.get("/api/profile/stats")
 async def get_profile_stats(request: Request):
     """Récupère les statistiques de l'utilisateur"""
@@ -852,7 +856,7 @@ async def get_profile_stats(request: Request):
 
 @app.get("/api/admin/stats")
 @require_role(["admin"])
-async def get_admin_stats(request: Request, period: str = "all", start_date: str = None, end_date: str = None):
+async def get_admin_stats( period: str = "all", start_date: str = None, end_date: str = None):
     """Récupère les statistiques globales pour l'administrateur"""
     
     # Si des dates sont fournies, filtrer sur cette période
