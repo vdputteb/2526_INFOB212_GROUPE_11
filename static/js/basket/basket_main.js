@@ -293,7 +293,7 @@ async function checkout() {
                     endDate: item.endDate
                 };
                 
-                const response = await fetch('/api/reservations', {
+                const response = await fetch('/api/locations', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(reservationData)
@@ -335,7 +335,7 @@ async function checkout() {
             });
             
             try {
-                const response = await fetch('/api/commandes', {
+                const response = await fetch('/api/ventes', {
                     credentials: 'include',
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -425,7 +425,6 @@ function showSuccessConfirmation(successfulRents, buySuccess, buyItems) {
         messageHtml += '<br>';
     }
     
-    messageHtml += 'Un email de confirmation vous sera envoyé.';
     messageHtml += '</div>';
     
     message.innerHTML = messageHtml;

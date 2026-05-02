@@ -222,7 +222,7 @@ async function checkAvailability(broomId, startDate, endDate, container, confirm
     container.appendChild(checkingDiv);
     
     try {
-        const response = await fetch(`/api/reservations/check?broom_id=${broomId}&start_date=${startDate}&end_date=${endDate}`);
+        const response = await fetch(`/api/locations/check?broom_id=${broomId}&start_date=${startDate}&end_date=${endDate}`);
         const data = await response.json();
         
         while (container.firstChild) {

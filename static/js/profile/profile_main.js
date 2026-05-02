@@ -110,10 +110,11 @@ function filterBroemsBySupplier(supplierId) {
         select.appendChild(createElement('option', '', 'Sélectionner un balai'));
         
         filteredBroems.forEach(b => {
-            const option = createElement('option', '', `${b.Libelle} - Prix vente: ${formatCurrency(b.sale_price)}`);
+            const option = createElement('option', '', `${b.Libelle} - Prix vente: ${formatCurrency(b.purchase_price)}`);
             option.value = b.id_balai;
             option.dataset.locationPrice = b.location_price;
-            option.dataset.salePrice = b.sale_price;
+            option.dataset.purchase_price = b.purchase_price;
+            option.dataset.salePrice = b.purchase_price + (0.2*b.purchase_price); // prix d'achat +20%
             select.appendChild(option);
         });
     });

@@ -41,6 +41,32 @@
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
 }
 
+/* Style spécifique pour la carte des dépenses */
+.kpi-card.depense-card {
+    border-left-color: #e74c3c;
+}
+
+.kpi-card.depense-card .kpi-value {
+    color: #e74c3c;
+}
+
+/* Style spécifique pour la carte du CA net */
+.kpi-card.positive-card {
+    border-left-color: #27ae60;
+}
+
+.kpi-card.positive-card .kpi-value {
+    color: #27ae60;
+}
+
+.kpi-card.negative-card {
+    border-left-color: #e74c3c;
+}
+
+.kpi-card.negative-card .kpi-value {
+    color: #e74c3c;
+}
+
 .kpi-title {
     font-size: 14px;
     color: #7f8c8d;
@@ -97,7 +123,7 @@ canvas {
     width: 100%;
 }
 
-/* Tableau des vendeurs */
+/* Tableau des vendeurs et fournisseurs */
 .vendeurs-section {
     background: white;
     border-radius: 12px;
@@ -145,6 +171,31 @@ canvas {
     color: #27ae60;
 }
 
+/* Style pour les valeurs de dépenses dans le tableau fournisseur */
+.vendeurs-table .depense-value {
+    font-weight: 600;
+    color: #e74c3c;
+}
+
+/* Badges */
+.badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.badge-admin {
+    background-color: #9b59b6;
+    color: white;
+}
+
+.badge-vendeur {
+    background-color: #3498db;
+    color: white;
+}
+
 /* Filtres */
 .filters {
     display: flex;
@@ -179,6 +230,13 @@ canvas {
     min-width: 150px;
 }
 
+.filter-group input:focus,
+.filter-group select:focus {
+    outline: none;
+    border-color: #f39c12;
+    box-shadow: 0 0 0 2px rgba(243, 156, 18, 0.2);
+}
+
 .btn-refresh {
     background-color: #f39c12;
     color: #2c3e50;
@@ -195,6 +253,7 @@ canvas {
     color: white;
 }
 
+/* Message de chargement */
 .loading {
     text-align: center;
     padding: 50px;
@@ -203,24 +262,6 @@ canvas {
 
 .loading.error {
     color: #e74c3c;
-}
-
-.badge {
-    display: inline-block;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 11px;
-    font-weight: 600;
-}
-
-.badge-admin {
-    background-color: #e74c3c;
-    color: white;
-}
-
-.badge-vendeur {
-    background-color: #3498db;
-    color: white;
 }
 
 /* Jauge de performance */
@@ -258,6 +299,21 @@ canvas {
     font-size: 10px;
     margin-top: 4px;
     display: block;
+    color: #7f8c8d;
+}
+
+/* Animation de chargement */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.loading {
+    animation: pulse 1.5s ease-in-out infinite;
 }
 
 /* Responsive */
@@ -304,18 +360,136 @@ canvas {
     .vendeurs-table td {
         padding: 6px 8px;
     }
-}
-
-/* Animation de chargement */
-@keyframes pulse {
-    0%, 100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.5;
+    
+    .stats-header h1 {
+        font-size: 22px;
     }
 }
 
-.loading {
-    animation: pulse 1.5s ease-in-out infinite;
+/* Tooltip personnalisé pour les graphiques (optionnel) */
+.chartjs-tooltip {
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 12px;
+    pointer-events: none;
+}
+
+/* Style pour la période sélectionnée */
+.period-info {
+    font-size: 13px;
+    color: #7f8c8d;
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    display: inline-block;
+}
+
+/* Scrollbar personnalisée pour les tableaux */
+.vendeurs-section::-webkit-scrollbar {
+    height: 8px;
+}
+
+.vendeurs-section::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.vendeurs-section::-webkit-scrollbar-thumb {
+    background: #f39c12;
+    border-radius: 4px;
+}
+
+.vendeurs-section::-webkit-scrollbar-thumb:hover {
+    background: #e67e22;
+}
+/* Styles supplémentaires pour les nouvelles fonctionnalités */
+
+/* Tendances KPI */
+.kpi-trend {
+    font-size: 11px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #ecf0f1;
+    color: #7f8c8d;
+}
+
+/* Cartes positives/négatives */
+.kpi-card.positive-card {
+    border-left-color: #27ae60;
+}
+
+.kpi-card.positive-card .kpi-value {
+    color: #27ae60;
+}
+
+.kpi-card.negative-card {
+    border-left-color: #e74c3c;
+}
+
+.kpi-card.negative-card .kpi-value {
+    color: #e74c3c;
+}
+
+/* Couleurs de texte pour la marge */
+.text-success {
+    color: #27ae60;
+    font-weight: bold;
+}
+
+.text-warning {
+    color: #f39c12;
+    font-weight: bold;
+}
+
+.text-danger {
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+/* Animation pour les graphiques */
+canvas {
+    transition: opacity 0.3s ease;
+}
+
+/* Amélioration responsive pour les petits écrans */
+@media (max-width: 768px) {
+    .kpi-grid {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+    
+    .kpi-value {
+        font-size: 20px;
+    }
+    
+    .chart-card canvas {
+        max-height: 250px;
+    }
+}
+
+/* Effet de hover sur les lignes du tableau des vendeurs */
+.vendeurs-table tr:hover .ca-value {
+    transform: scale(1.02);
+}
+
+/* Badge pour les nouvelles métriques */
+.badge-marge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+/* Chart.js personnalisations */
+.chartjs-tooltip {
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    pointer-events: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }

@@ -4,12 +4,13 @@
 
 <link rel="stylesheet" href="{{ url_for('static', path='css/stats.css') }}">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
 <script src="{{ url_for('static', path='js/stats/stats_main.js') }}"></script>
 
 <div class="stats-container">
     <div class="stats-header">
         <h1>📊 Tableau de bord statistiques</h1>
-        <p>Analyse des ventes, locations et performance des vendeurs</p>
+        <p>Analyse financière, ventes, locations et performance commerciale</p>
     </div>
 
     <div class="filters">
@@ -21,6 +22,7 @@
                 <option value="last30">30 derniers jours</option>
                 <option value="last90">90 derniers jours</option>
                 <option value="year">Cette année</option>
+                <option value="last12m">12 derniers mois</option>
             </select>
         </div>
         <div class="filter-group">
@@ -32,7 +34,7 @@
             <input type="date" id="end-date">
         </div>
         <div class="filter-group">
-            <button class="btn-refresh" id="refresh-btn">🔄 Actualiser</button>
+            <button class="btn-refresh" id="refresh-btn"> Actualiser</button>
         </div>
     </div>
 
