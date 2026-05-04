@@ -5,16 +5,10 @@
 <link rel="stylesheet" href="{{ url_for('static', path='css/basket.css') }}">
 <script type="module" src="{{ url_for('static', path='js/basket/basket_main.js') }}"></script>
 
-<input type="hidden" id="clientId" value="{{ client.id if client else '' }}">
-<input type="hidden" id="clientNom" value="{{ client.nom if client else '' }}">
-<input type="hidden" id="clientPrenom" value="{{ client.prenom if client else '' }}">
-<input type="hidden" id="clientEmail" value="{{ client.email if client else '' }}">
-<input type="hidden" id="clientAdresse" value="{{ client.adresse if client else '' }}">
-
 <section class="basket-section">
     <div class="basket-container">
         <h1>Mon Panier</h1>
-        <p>Client : <strong>{{ client.prenom }} {{ client.nom }}</strong></p>
+        <p id="Client-name"></p>
         
         <div class="basket-content">
             <div class="basket-items">
@@ -38,10 +32,8 @@
                 <h3>Récapitulatif</h3>
                 <div class="summary-row"><span>Sous-total</span><span id="subtotal">0,00 €</span></div>
                 <div class="summary-row"><span>Frais de livraison</span><span id="deliveryFee">0,00 €</span></div>
-                <div class="summary-row"><span>Éco-participation</span><span id="ecoFee">0,00 €</span></div>
                 <div class="summary-row total"><span>Total</span><span id="total">0,00 €</span></div>
                 <div class="delivery-info">
-                    <p>🚚 Livraison offerte dès 50€</p>
                     <p>📍 Retrait en magasin gratuit</p>
                 </div>
                 <button class="btn-checkout" id="checkoutBtn">Valider la commande</button>

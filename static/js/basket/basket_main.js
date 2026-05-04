@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadClientInfo();
     renderBasket();
     setupEventListeners();
+    document.getElementById("Client-name").innerText = "Client : " + sessionStorage.getItem("ClientName")
 });
 
 function loadClientInfo() {
@@ -254,7 +255,6 @@ function updateTotalsDisplay() {
     const totals = BasketManager.calculateTotals();
     document.getElementById('subtotal').textContent = totals.subtotal.toFixed(2) + ' €';
     document.getElementById('deliveryFee').textContent = totals.deliveryFee.toFixed(2) + ' €';
-    document.getElementById('ecoFee').textContent = totals.ecoFee.toFixed(2) + ' €';
     document.getElementById('total').textContent = totals.total.toFixed(2) + ' €';
 }
 

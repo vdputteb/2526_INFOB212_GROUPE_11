@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupEventListeners();
     BasketManager.createCartButton();
     updateCartCount();
+    document.getElementById("Client-name").innerText = "Client : " + sessionStorage.getItem("ClientName")
 });
 
 async function loadCatalogue() {

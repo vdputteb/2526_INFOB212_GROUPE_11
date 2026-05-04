@@ -105,12 +105,7 @@ export const BasketManager = {
     calculateTotals() {
         let subtotal = basket.reduce((sum, item) => sum + (item.total || item.price * item.quantity), 0);
         let deliveryFee = subtotal > 0 && subtotal < 50 ? 5.90 : 0;
-        let ecoFee = basket.reduce((sum, item) => {
-            
-            if (item.type === 'rent') return sum;
-            return sum + (item.quantity * 0.50);
-        }, 0);
-        return { subtotal, deliveryFee, ecoFee, total: subtotal + deliveryFee + ecoFee };
+        return { subtotal, deliveryFee, total: subtotal + deliveryFee };
     },
 
     createCartButton() {

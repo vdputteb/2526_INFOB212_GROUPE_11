@@ -1,9 +1,12 @@
 from functools import wraps
+from os import getenv
+from dotenv import load_dotenv
 from fastapi import HTTPException, Request
-from BD.dao import DAO
+from BD.dao_mysql import DAOMySQL
 from utils.jwt_token import verify_token
 
-dao = DAO()
+load_dotenv()
+dao = DAOMySQL(getenv("DB_HOST"),int(getenv("DB_PORT")),getenv("DB_USER"),getenv("DB_PASSWORD"),getenv("DB_NAME"))
 
 
 def require_role(allowed_roles: list):
@@ -21,7 +24,6 @@ def require_role(allowed_roles: list):
         async def wrapper(*args, **kwargs):
             # Récupérer la requête (premier argument)
             request = None
-
             for arg in args:
                 if isinstance(arg, Request):
                     request = arg
@@ -86,7 +88,6 @@ async def check_user_role(request: Request, required_roles: list) -> tuple:
     Utile pour les vérifications dans les fonctions existantes
     """
     session_token = request.cookies.get("userID")
-    
     if not session_token:
         raise HTTPException(status_code=401, detail="Non connecté")
     

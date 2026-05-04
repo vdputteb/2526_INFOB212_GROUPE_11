@@ -1,5 +1,6 @@
 from os import getenv
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
+from dotenv import load_dotenv
 import uvicorn
 import bcrypt
 from fastapi import FastAPI, HTTPException, Request
@@ -9,7 +10,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 
-from BD.dao import DAO
+from BD.dao_mysql import DAOMySQL
 from BD.models import (
     Employee, Client, Reservation, SorcierDetails, MolduDetails, Address,
     LoginRequest, SelectClientRequest, SelectVendeurRequest, CreateCommandeRequest
@@ -18,11 +19,13 @@ from utils.auth import require_role
 from utils.jwt_token import create_access_token, verify_token
 
 # Création de l'instance FastAPI
+load_dotenv()
 app = FastAPI()
 security = HTTPBearer()
 
 # Initialisation du DAO
-dao = DAO("BD/database.db")
+
+dao = DAOMySQL(getenv("DB_HOST"),int(getenv("DB_PORT")),getenv("DB_USER"),getenv("DB_PASSWORD"),getenv("DB_NAME"))
 
 # Autoriser les requêtes depuis le front-end
 app.add_middleware(
@@ -62,12 +65,23 @@ async def auth_middleware(request: Request, call_next):
     request.state.user_role = "admin" if payload.get("admin") else "vendeur"
     request.state.user_id = payload.get("user_id")
     request.state.password = payload.get("password")
-    
+
     try:
         response = await call_next(request)
     except Exception as e:
         raise e
-    
+
+    jwt_token = create_access_token(payload)
+    response.set_cookie(
+        key="userID",
+        value=jwt_token,
+        httponly=True,
+        secure=False,  # True en production avec HTTPS
+        max_age=int(getenv("ACCESS_TOKEN_EXPIRE_MINUTES")) * 60,
+        samesite="lax",
+        path="/"
+    )
+
     return response
 
 
@@ -309,7 +323,7 @@ async def login(login_data: LoginRequest):
         value=jwt_token,
         httponly=True,
         secure=False,  # True en production avec HTTPS
-        max_age=int(getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 60)) * 60,
+        max_age=int(getenv("ACCESS_TOKEN_EXPIRE_MINUTES")) * 60,
         samesite="lax",
         path="/"
     )

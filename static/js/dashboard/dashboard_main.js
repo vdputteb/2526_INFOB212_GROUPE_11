@@ -115,7 +115,7 @@ function displayClients(clients) {
         
         const typeDiv = document.createElement('div');
         typeDiv.className = 'phone';
-        typeDiv.textContent = client.SORCIER != null ? '🧙 Sorcier' : '🏠 Moldu';
+        typeDiv.textContent = client.SORCIER == 1 ? '🧙 Sorcier' : '🏠 Moldu';
         
         card.appendChild(nameDiv);
         card.appendChild(emailDiv);
@@ -139,6 +139,7 @@ async function selectClient(clientId) {
         if (data.success) {
             currentClient = data.client;
             window.currentClient = currentClient;
+            sessionStorage.setItem("ClientName",data.client["name"] + " " + data.client["surname"])
             displayClientInfo(currentClient);
             
             document.querySelectorAll('#clientList .card').forEach(card => {
@@ -175,11 +176,11 @@ function displayClientInfo(client) {
     if (nomElem) nomElem.textContent = client.name || '';
     if (prenomElem) prenomElem.textContent = client.surname || '';
     if (birthDateElem) birthDateElem.textContent = client.birth_date || 'Non renseigné';
-    if (typeElem) typeElem.innerHTML = client.SORCIER != null ? '🧙 Sorcier' : '🏠 Moldu';
+    if (typeElem) typeElem.innerHTML = (client.SORCIER == 1) ? '🧙 Sorcier' : '🏠 Moldu';
     if (moneyElem) moneyElem.textContent = client.money ? parseFloat(client.money).toFixed(2) : '0.00';
     
     // Afficher les détails spécifiques
-    if (client.SORCIER != null && sorcierDetails && molduDetails) {
+    if (client.SORCIER == 1 && sorcierDetails && molduDetails) {
         sorcierDetails.style.display = 'block';
         molduDetails.style.display = 'none';
         
@@ -205,7 +206,7 @@ function displayClientInfo(client) {
         const owls = client.sorcier?.owls || [];
         if (telephoneElem) telephoneElem.textContent = owls.length > 0 ? owls.join(', ') : 'Aucun';
         
-    } else if (client.MOLDU != null && sorcierDetails && molduDetails) {
+    } else if (client.MOLDU == 1 && sorcierDetails && molduDetails) {
         sorcierDetails.style.display = 'none';
         molduDetails.style.display = 'block';
         
@@ -398,7 +399,7 @@ function displayVendeurInfo(vendeur) {
     if (telephoneElem) telephoneElem.textContent = phones.length > 0 ? phones.join(', ') : 'Non renseigné';
     
     if (actifElem) {
-        actifElem.innerHTML = vendeur.actif ? '<span style="color: green;">🟢 Actif</span>' : '<span style="color: red;">🔴 Inactif</span>';
+        actifElem.innerHTML = (vendeur.actif  == 1) ?  '<span style="color: green;">🟢 Actif</span>' : '<span style="color: red;">🔴 Inactif</span>';
     }
 }
 

@@ -6,15 +6,9 @@
 <link rel="stylesheet" href="{{ url_for('static', path='css/rental-modal.css') }}">
 <script type="module" src="{{ url_for('static', path='js/shop/shop_main.js') }}"></script>
 
-<input type="hidden" id="clientId" value="{{ client.id if client else '' }}">
-<input type="hidden" id="clientNom" value="{{ client.nom if client else '' }}">
-<input type="hidden" id="clientPrenom" value="{{ client.prenom if client else '' }}">
-<input type="hidden" id="clientEmail" value="{{ client.email if client else '' }}">
-<input type="hidden" id="clientAdresse" value="{{ client.adresse if client else '' }}">
-
 <section class="banner">
     <h2>Louez ou achetez le balai qu'il vous faut</h2>
-    <p>Client : <strong>{{ client.prenom }} {{ client.nom }}</strong> ({{ client.email }})</p>
+    <p id="Client-name">Client : </p>
     <div class="search-bar">
         <input type="text" placeholder="Rechercher un balai..." id="searchInput">
         <button onclick="window.searchBrooms?.()">Rechercher</button>

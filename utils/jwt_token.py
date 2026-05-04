@@ -5,9 +5,9 @@ from jose import JWTError, jwt
 
 
 # Configuration
-SECRET_KEY = getenv("SECRET_KEY") or 'test'
-ALGORITHM = getenv("ALGORITHM") or "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = getenv("ACCESS_TOKEN_EXPIRE_MINUTES") or 30
+SECRET_KEY = getenv("SECRET_KEY")
+ALGORITHM = getenv("ALGORITHM")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
 
 def create_access_token(data: dict):
     """Crée un token JWT"""

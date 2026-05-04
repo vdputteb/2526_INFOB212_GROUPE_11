@@ -60,7 +60,7 @@ function renderVentes(ventes, containerId) {
         const itemsContainer = clone.querySelector('.vente-items');
         if (venteGroup.items && Array.isArray(venteGroup.items) && venteGroup.items.length) {
             venteGroup.items.forEach(item => {
-                const itemDiv = createElement('div', 'vente-item', `${item.broom_name} ${formatCurrency(item.total_amount)}`);
+                const itemDiv = createElement('div', 'vente-item', `${item.broom_name} ${formatCurrency(item.sale_price)}`);
                 itemsContainer.appendChild(itemDiv);
             });
         } else {
@@ -94,6 +94,7 @@ function groupVentesByCommande(ventes) {
         group.items.push({
             broom_name: vente.broom_name,
             quantity: 1,
+            sale_price : vente.sale_price,
             price: vente.total_amount / (group.items.length + 1) || vente.total_amount
         });
     });
@@ -151,7 +152,7 @@ function renderFournisseurCommandes(commandes, containerId) {
         const itemsDiv = clone.querySelector('.fournisseur-items');
         if (cmd.items && cmd.items.length) {
             cmd.items.forEach(item => {
-                const itemDiv = createElement('div', 'fournisseur-item', `${item.broom_name} x${item.quantity} - ${formatCurrency(item.price)}/unité`);
+                const itemDiv = createElement('div', 'fournisseur-item', `${item.broom_name} x${item.quantity} - ${formatCurrency(item.purchase_price)}/unité`);
                 itemsDiv.appendChild(itemDiv);
             });
         } else {
@@ -212,7 +213,7 @@ function renderPendingApprovals(commandes, onApproveClick) {
         const itemsDiv = clone.querySelector('.fournisseur-items');
         if (cmd.items && cmd.items.length) {
             cmd.items.forEach(item => {
-                const itemDiv = createElement('div', 'fournisseur-item', `${item.broom_name} x${item.quantity} - ${formatCurrency(item.price)}/unité`);
+                const itemDiv = createElement('div', 'fournisseur-item', `${item.broom_name} x${item.quantity} - ${formatCurrency(item.purchase_price)}/unité`);
                 itemsDiv.appendChild(itemDiv);
             });
         }
