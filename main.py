@@ -372,8 +372,6 @@ async def modify_client(request: Request, client_data: dict):
             money=client_data.get("money", 0),
             id_employee=request.state.user_id
         )
-
-
         # Ajouter les détails spécifiques
         if  client_data.get("sorcier"):
             sorcier_data = client_data["sorcier"]
@@ -655,7 +653,7 @@ async def create_reservation(request: Request, reservation: Reservation):
         raise HTTPException(status_code=409, detail="This broom is already booked for this period")
     
     try:
-        success = dao.add_reservation(int(client_id), request.state.user_id, reservation)
+        success = dao.add_location(int(client_id), request.state.user_id, reservation)
         if not success:
             raise HTTPException(status_code=500, detail="Failed to create reservation")
         return JSONResponse({"message": "Booking made"}, status_code=201)
@@ -666,7 +664,7 @@ async def create_reservation(request: Request, reservation: Reservation):
 @app.delete("/api/locations/{reservation_id}")
 async def delete_reservation(request: Request, reservation_id: int):
     """Annule une location"""
-    deleted = dao.delete_reservation(reservation_id)
+    deleted = dao.delete_location(reservation_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Booking not found")
     return JSONResponse({"message": "Booking canceled"})
@@ -707,18 +705,18 @@ async def get_ventes_vendeur(request: Request):
 async def create_commande(request: Request, commande_data: CreateCommandeRequest):
     """Crée une nouvelle commande d'achat"""
     client_id = request.cookies.get("clientID")
-    
+
     if not client_id:
         raise HTTPException(status_code=400, detail="No client selected")
-    
+
     # Vérifier que tous les balais sont disponibles
     for broom_id in commande_data.broom_ids:
         broom = dao.get_broom_by_id(broom_id)
         if not broom or broom['status'] != 'in stock':
             raise HTTPException(status_code=409, detail=f"Broom {broom_id} is not available")
-    
+
     try:
-        success = dao.add_vente(request.state.user_id, int(client_id), commande_data.broom_ids[0])
+        success = dao.add_vente(request.state.user_id, int(client_id), commande_data.broom_ids)
         if not success:
             raise HTTPException(status_code=500, detail="Failed to create order")
         return JSONResponse({"message": "Order made"}, status_code=201)

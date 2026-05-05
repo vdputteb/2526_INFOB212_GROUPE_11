@@ -590,7 +590,6 @@ class DAOMySQL:
                 # Vérifier si le client est déjà un moldu
                 cursor.execute("SELECT 1 FROM MOLDU WHERE id_client = %s", (client.id_client,))
                 exists = cursor.fetchone()
-                print(client.moldu.telephones)
                 if exists:
                     # Mise à jour
                     cursor.execute("""
@@ -842,7 +841,7 @@ class DAOMySQL:
         return True, None
 
 
-    def add_reservation(self, client_id: int, employee_id: int, reservation: Reservation) -> bool:
+    def add_location(self, client_id: int, employee_id: int, location: Reservation) -> bool:
         """Ajoute une nouvelle location"""
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -858,16 +857,16 @@ class DAOMySQL:
             cursor.execute("""
                 INSERT INTO LOCATION (id_commande, begin_date, end_date, status)
                 VALUES (%s, %s, %s, 'Pending')
-            """, (commande_id, reservation.startDate, reservation.endDate))
+            """, (commande_id, location.startDate, location.endDate))
             
             # Lier le balai à la location via DETAIL_LOCATION
             cursor.execute("""
                 INSERT INTO DETAIL_LOCATION (id_location, id_balai)
                 VALUES (%s, %s)
-            """, (commande_id, reservation.broomId))
+            """, (commande_id, location.broomId))
             
             # Mettre à jour le status du balai
-            cursor.execute("UPDATE BALAI SET status = 'in location' WHERE id_balai = %s", (reservation.broomId,))
+            cursor.execute("UPDATE BALAI SET status = 'in location' WHERE id_balai = %s", (location.broomId,))
             
             conn.commit()
             return True
@@ -880,7 +879,7 @@ class DAOMySQL:
             conn.close()
 
 
-    def delete_reservation(self, reservation_id: int) -> bool:
+    def delete_location(self, location_id: int) -> bool:
         """Supprime une location"""
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -892,15 +891,15 @@ class DAOMySQL:
                 JOIN DETAIL_LOCATION dl ON l.id_commande = dl.id_location
                 JOIN BALAI b ON dl.id_balai = b.id_balai
                 WHERE l.id_commande = %s
-            """, (reservation_id,))
+            """, (location_id,))
             result = cursor.fetchone()
             
             if result:
                 cursor.execute("UPDATE BALAI SET status = 'in stock' WHERE id_balai = %s", (result[0],))
             
-            cursor.execute("DELETE FROM DETAIL_LOCATION WHERE id_location = %s", (reservation_id,))
-            cursor.execute("DELETE FROM LOCATION WHERE id_commande = %s", (reservation_id,))
-            cursor.execute("DELETE FROM COMMANDE WHERE id_commande = %s", (reservation_id,))
+            cursor.execute("DELETE FROM DETAIL_LOCATION WHERE id_location = %s", (location_id,))
+            cursor.execute("DELETE FROM LOCATION WHERE id_commande = %s", (location_id,))
+            cursor.execute("DELETE FROM COMMANDE WHERE id_commande = %s", (location_id,))
             
             conn.commit()
             return True
@@ -932,29 +931,29 @@ class DAOMySQL:
             if not location:
                 print("Location non trouvée ou déjà terminée")
                 return False
-            
+
             begin_date = location[1]
             expected_end_date = location[2]
             client_id = location[3]
             client_money = location[4]
-            
+
             # Calculer le nombre de jours réel (arrondi au supérieur)
             cursor.execute("""
                 SELECT CEIL(DATEDIFF(%s, %s)) as rental_days
             """, (actual_end_date, begin_date))
             rental_days = cursor.fetchone()[0]
-            
+
             if rental_days <= 0:
                 print("Durée de location invalide")
                 return False
-            
+
             # Calculer le nombre de jours de retard (si applicable)
             cursor.execute("""
                 SELECT CEIL(DATEDIFF(%s, %s)) as late_days
             """, (actual_end_date, expected_end_date))
             late_days = cursor.fetchone()[0]
             late_days = max(0, late_days)  # Si négatif, pas de retard
-            
+
             # Récupérer les balais de la location
             cursor.execute("""
                 SELECT b.location_price, b.id_balai
@@ -963,11 +962,11 @@ class DAOMySQL:
                 WHERE dl.id_location = %s
             """, (commande_id,))
             brooms = cursor.fetchall()
-            
+
             if not brooms:
                 print("Aucun balai trouvé pour cette location")
                 return False
-            
+
             # Calculer le montant total
             total_amount = 0
             for broom in brooms:
@@ -977,33 +976,33 @@ class DAOMySQL:
                 # Supplément de 50% pour les jours de retard
                 if late_days > 0:
                     total_amount += daily_price * late_days * 0.5
-            
+
             # Arrondir à 2 décimales
             total_amount = round(total_amount, 2)
-            
+
             if total_amount <= 0:
                 print("Montant de location invalide")
                 return False
-            
+
             # Vérifier si le client a assez d'argent
             if client_money < total_amount:
                 print(f"Solde insuffisant : {client_money} < {total_amount}")
                 return False
-            
+
             # Débiter le client
             cursor.execute("""
                 UPDATE CLIENT 
                 SET money = money - %s 
                 WHERE id_client = %s
             """, (total_amount, client_id))
-            
+
             # Mettre à jour la location
             cursor.execute("""
                 UPDATE LOCATION 
                 SET actual_end_date = %s, status = 'Finished'
                 WHERE id_commande = %s
             """, (actual_end_date, commande_id))
-            
+
             # Mettre à jour le statut des balais
             cursor.execute("""
                 UPDATE BALAI 
@@ -1013,17 +1012,11 @@ class DAOMySQL:
                     WHERE id_location = %s
                 )
             """, (commande_id,))
-            
+
             conn.commit()
-            
-            # Afficher le détail du paiement
-            if late_days > 0:
-                print(f"Location {commande_id} terminée avec {late_days} jour(s) de retard.")
-                print(f"Supplément de retard appliqué : +50% sur {late_days} jour(s)")
-            print(f"Montant total débité : {total_amount}")
-            
+
             return True
-            
+
         except Error as e:
             print(f"Erreur validation retour: {e}")
             conn.rollback()
@@ -1098,17 +1091,30 @@ class DAOMySQL:
         return results
 
 
-    def add_vente(self, employee_id: int, client_id: int, broom_id: int) -> bool:
+    def add_vente(self, employee_id: int, client_id: int, broom_ids: int) -> bool:
         """Ajoute une nouvelle vente"""
         conn = self._get_connection()
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         try:
-            # Récupérer le prix du balai
-            cursor.execute("SELECT sale_price, status FROM BALAI WHERE id_balai = %s", (broom_id,))
-            broom = cursor.fetchone()
-            if not broom or broom['status'] != 'in stock':
+            sale_price = 0
+
+            for broom_id in broom_ids :
+                # Récupérer le prix du balai
+                cursor.execute("SELECT sale_price, status FROM BALAI WHERE id_balai = %s", (broom_id,))
+                broom = cursor.fetchone()
+                if not broom or broom['status'] != 'in stock':
+                    return False
+                sale_price += broom['sale_price']
+
+            cursor.execute("SELECT money FROM CLIENT WHERE id_client = %s", (client_id,))
+            client_money = cursor.fetchone()
+            print(client_money)
+
+            remnant = client_money['money'] - sale_price
+
+            if (remnant) < 0 :
                 return False
-            
+
             current_date = date.today().isoformat()
 
             # Créer la COMMANDE
@@ -1123,34 +1129,117 @@ class DAOMySQL:
                 INSERT INTO VENTE (id_commande, sale_date)
                 VALUES (%s, %s)
             """, (commande_id, current_date))
+
+            for broom_id in broom_ids :
+                # Mettre à jour le balai
+                cursor.execute("""
+                    UPDATE BALAI 
+                    SET id_vente = %s, status = 'sold', uses_number = uses_number + 1
+                    WHERE id_balai = %s
+                """, (commande_id, broom_id))
             
-            # Mettre à jour le balai
-            cursor.execute("""
-                UPDATE BALAI 
-                SET id_vente = %s, status = 'sold', uses_number = uses_number + 1
-                WHERE id_balai = %s
-            """, (commande_id, broom_id))
-            
-            cursor.execute("SELECT money FROM CLIENT WHERE id_client = 2 ;", (client_id,))
-            print(cursor.fetchone())
             # Débiter le client
             cursor.execute("""
-                UPDATE CLIENT 
-                SET money = money - %s
+                UPDATE CLIENT
+                SET money = %s
                 WHERE id_client = %s
-            """, (broom['sale_price'], client_id))
-            
-            # Vérifier que le client a assez d'argent
-            cursor.execute("SELECT money FROM CLIENT WHERE id_client = %s", (client_id,))
-            new_balance = cursor.fetchone()
-            if new_balance['money'] < 0:
-                conn.rollback()
-                return False
+            """, (remnant, client_id))
             
             conn.commit()
             return True
         except Error as e:
             print(f"Erreur ajout vente: {e}")
+            conn.rollback()
+            return False
+        finally:
+            cursor.close()
+            conn.close()
+
+
+    def delete_vente(self, vente_id: int) -> bool:
+        """Supprime une vente et restaure les balais associés"""
+        conn = self._get_connection()
+        cursor = conn.cursor(pymysql.cursors.DictCursor)
+        try:
+            # Récupérer la commande associée à la vente
+            cursor.execute("""
+                SELECT id_commande, sale_date 
+                FROM VENTE 
+                WHERE id_vente = %s
+            """, (vente_id,))
+            vente = cursor.fetchone()
+            
+            if not vente:
+                print(f"Vente {vente_id} non trouvée")
+                return False
+            
+            commande_id = vente['id_commande']
+            
+            # Récupérer tous les balais associés à cette vente
+            cursor.execute("""
+                SELECT id_balai, sale_price 
+                FROM BALAI 
+                WHERE id_vente = %s
+            """, (commande_id,))
+            brooms = cursor.fetchall()
+            
+            if not brooms:
+                print(f"Aucun balai trouvé pour la vente {vente_id}")
+                return False
+            
+            # Calculer le montant total à rembourser
+            total_refund = sum(broom['sale_price'] for broom in brooms)
+            
+            # Récupérer l'id_client depuis la commande
+            cursor.execute("""
+                SELECT id_client 
+                FROM COMMANDE 
+                WHERE id_commande = %s
+            """, (commande_id,))
+            commande = cursor.fetchone()
+            
+            if not commande:
+                print(f"Commande {commande_id} non trouvée")
+                return False
+            
+            client_id = commande['id_client']
+            
+            # Récupérer l'argent actuel du client
+            cursor.execute("SELECT money FROM CLIENT WHERE id_client = %s", (client_id,))
+            client = cursor.fetchone()
+            
+            if not client:
+                print(f"Client {client_id} non trouvé")
+                return False
+            
+            # Rembourser le client
+            new_money = client['money'] + total_refund
+            cursor.execute("""
+                UPDATE CLIENT
+                SET money = %s
+                WHERE id_client = %s
+            """, (new_money, client_id))
+            
+            # Restaurer les balais (changer status et enlever l'association à la vente)
+            for broom in brooms:
+                cursor.execute("""
+                    UPDATE BALAI 
+                    SET id_vente = NULL, status = 'in stock'
+                    WHERE id_balai = %s
+                """, (broom['id_balai'],))
+            
+            # Supprimer la vente
+            cursor.execute("DELETE FROM VENTE WHERE id_vente = %s", (vente_id,))
+            
+            # Supprimer la commande (optionnel, selon votre logique métier)
+            cursor.execute("DELETE FROM COMMANDE WHERE id_commande = %s", (commande_id,))
+            
+            conn.commit()
+            print(f"Vente {vente_id} supprimée avec succès")
+            return True
+            
+        except Error as e:
+            print(f"Erreur suppression vente: {e}")
             conn.rollback()
             return False
         finally:

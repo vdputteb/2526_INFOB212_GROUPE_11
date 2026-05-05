@@ -1,7 +1,7 @@
 from typing import Optional, List
-from datetime import date, datetime
+from datetime import date
 from enum import Enum
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 
 # --- Enums pour les valeurs contraintes ---
@@ -38,14 +38,6 @@ class Employee(BaseModel):
     phone: List[str] = Field(default_factory=list)  # tel1, tel2, tel3
     is_admin: bool = False  # is_patron
     id_patron: Optional[int] = None  # id_admin
-
-    @field_validator('phone')
-    @classmethod
-    def validate_phone(cls, v: List[str]) -> List[str]:
-        if len(v) > 3:
-            raise ValueError('Maximum 3 phone numbers allowed')
-        return v
-
 
 # --- Modèles pour les CLIENTS (Sorciers et Moldus) ---
 
@@ -145,34 +137,17 @@ class Balai(BaseModel):
 
 # --- Modèles pour les RÉSERVATIONS (LOCATIONS) ---
 
-class Reservation(BaseModel):
+class Location(BaseModel):
     """
-    Model for creating/reading reservations (LOCATIONS)
+    Model for creating/reading Locations (LOCATIONS)
     """
     broomId: int
     startDate: str  # Format: YYYY-MM-DD
     endDate: str    # Format: YYYY-MM-DD
     userId: Optional[str] = None  # ID de l'utilisateur connecté
-    
-    @field_validator('startDate', 'endDate')
-    @classmethod
-    def validate_date_format(cls, v: str) -> str:
-        try:
-            datetime.strptime(v, '%Y-%m-%d')
-        except ValueError:
-            raise ValueError('Date must be in YYYY-MM-DD format')
-        return v
-    
-    @field_validator('endDate')
-    @classmethod
-    def validate_dates(cls, v: str, info) -> str:
-        start = info.data.get('startDate')
-        if start and v < start:
-            raise ValueError('endDate must be after startDate')
-        return v
 
 
-class Location(BaseModel):
+class Reservation(BaseModel):
     """
     Model of the LOCATION table
     """
@@ -270,15 +245,7 @@ class CreateCommandeRequest(BaseModel):
     """Requête pour créer une commande d'achat"""
     sale_date: str  # YYYY-MM-DD
     broom_ids: List[int]
-    
-    @field_validator('sale_date')
-    @classmethod
-    def validate_sale_date(cls, v: str) -> str:
-        try:
-            datetime.strptime(v, '%Y-%m-%d')
-        except ValueError:
-            raise ValueError('sale_date must be in YYYY-MM-DD format')
-        return v
+
 
 
 class CheckAvailabilityRequest(BaseModel):

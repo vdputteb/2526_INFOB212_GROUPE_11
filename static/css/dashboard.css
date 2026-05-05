@@ -4,6 +4,8 @@
     --secondary-color: #2c3e50;
     --success-color: #27ae60;
     --danger-color: #e74c3c;
+    --info-color: #3498db;
+    --warning-color: #f1c40f;
     --gray-light: #f8f9fa;
     --gray-medium: #e9ecef;
     --gray-dark: #6c757d;
@@ -308,7 +310,7 @@
     background: white;
     border-radius: 20px;
     padding: 30px;
-    max-width: 600px;
+    max-width: 700px;
     width: 90%;
     max-height: 85vh;
     overflow-y: auto;
@@ -351,6 +353,26 @@
     margin-bottom: 20px;
     padding-bottom: 10px;
     border-bottom: 2px solid var(--primary-color);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid var(--primary-color);
+}
+
+.modal-header h2 {
+    margin: 0;
+    color: var(--secondary-color);
+    font-size: 24px;
+}
+
+.modal-header .close-modal {
+    float: none;
+    font-size: 32px;
 }
 
 /* Formulaires */
@@ -436,6 +458,192 @@ select:focus {
 .btn-submit:hover {
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
+}
+
+/* ============================================
+   STYLES DES BOUTONS DE MODALES (MODIFICATION)
+   ============================================ */
+
+/* Conteneur des boutons dans les modales */
+.modal-buttons {
+    display: flex;
+    gap: 15px;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid var(--gray-medium);
+}
+
+/* Bouton Enregistrer */
+.modal-buttons .btn-save,
+.modal .btn-save {
+    flex: 1;
+    background: linear-gradient(135deg, var(--success-color) 0%, #1e8e4a 100%);
+    color: white;
+    border: none;
+    padding: 14px 24px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 15px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(39, 174, 96, 0.3);
+}
+
+.modal-buttons .btn-save::before,
+.modal .btn-save::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.modal-buttons .btn-save:hover,
+.modal .btn-save:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(39, 174, 96, 0.4);
+    background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+}
+
+.modal-buttons .btn-save:active,
+.modal .btn-save:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(39, 174, 96, 0.3);
+}
+
+.modal-buttons .btn-save:disabled,
+.modal .btn-save:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Bouton Annuler */
+.modal-buttons .btn-cancel,
+.modal .btn-cancel {
+    flex: 1;
+    background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+    color: white;
+    border: none;
+    padding: 14px 24px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 15px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(127, 140, 141, 0.3);
+}
+
+.modal-buttons .btn-cancel::before,
+.modal .btn-cancel::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.modal-buttons .btn-cancel:hover,
+.modal .btn-cancel:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(127, 140, 141, 0.4);
+    background: linear-gradient(135deg, #a5b4b6 0%, #8e9e9f 100%);
+}
+
+.modal-buttons .btn-cancel:active,
+.modal .btn-cancel:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(127, 140, 141, 0.3);
+}
+
+/* Style spécifique pour le bouton sauvegarder dans modifyVendeurModal */
+#modifyVendeurForm .btn-save,
+#modifyClientForm .btn-save {
+    background: linear-gradient(135deg, var(--info-color) 0%, #2980b9 100%);
+    box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
+}
+
+#modifyVendeurForm .btn-save:hover,
+#modifyClientForm .btn-save:hover {
+    background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+    box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
+}
+
+/* Bouton de fermeture dans les modales */
+.modal .btn-close {
+    background: linear-gradient(135deg, var(--danger-color) 0%, #c0392b 100%);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.modal .btn-close:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+}
+
+/* Effet de ripple pour les boutons */
+@keyframes ripple {
+    to {
+        width: 300px;
+        height: 300px;
+        opacity: 0;
+    }
+}
+
+.modal-buttons .btn-save:active::before,
+.modal .btn-save:active::before,
+.modal-buttons .btn-cancel:active::before,
+.modal .btn-cancel:active::before {
+    width: 300px;
+    height: 300px;
+    animation: ripple 0.6s ease-out;
+}
+
+/* Form row pour les champs côte à côte */
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.form-row .form-group {
+    margin-bottom: 0;
+}
+
+/* Séparateur dans les formulaires */
+.modal-content hr {
+    margin: 25px 0;
+    border: none;
+    height: 1px;
+    background: linear-gradient(to right, transparent, var(--gray-medium), transparent);
+}
+
+.modal-content h3 {
+    margin-top: 20px;
+    margin-bottom: 15px;
 }
 
 /* Cartes commandes et réservations */
@@ -585,6 +793,21 @@ select:focus {
     }
     
     .btn-action {
+        width: 100%;
+    }
+    
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .modal-buttons {
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .modal-buttons .btn-save,
+    .modal-buttons .btn-cancel {
         width: 100%;
     }
 }
