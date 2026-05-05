@@ -235,13 +235,12 @@ async def register_client(request: Request, client_data: dict):
         surname=client_data.get("surname"),
         birth_date=date.fromisoformat(client_data.get("birth_date")),
         money=client_data.get("money", 0),
-        type_client=client_data.get("type_client"),
         telephones=client_data.get("telephones", []),
         id_employee=request.state.user_id,
     )
-    
+
     # Ajouter les détails spécifiques
-    if client.type_client == "sorcier" and client_data.get("sorcier"):
+    if  client_data.get("sorcier"):
         sorcier_data = client_data["sorcier"]
         client.sorcier = SorcierDetails(
             wizard_registry_number=sorcier_data["wizard_registry_number"],
@@ -252,8 +251,8 @@ async def register_client(request: Request, client_data: dict):
             flight_licence=sorcier_data.get("flight_licence", 0),
             owls=sorcier_data.get("owls", [])
         )
-    
-    elif client.type_client == "moldu" and client_data.get("moldu"):
+
+    if  client_data.get("moldu"):
         moldu_data = client_data["moldu"]
         client.moldu = MolduDetails(
             national_register_number=moldu_data["national_register_number"],
@@ -266,7 +265,7 @@ async def register_client(request: Request, client_data: dict):
             ),
             telephones=client.telephones
         )
-    
+
     success = dao.add_client(client)
     if not success:
         raise HTTPException(status_code=500, detail="Error creating client")
@@ -371,12 +370,12 @@ async def modify_client(request: Request, client_data: dict):
             surname=client_data.get("surname"),
             birth_date=date.fromisoformat(client_data.get("birth_date")),
             money=client_data.get("money", 0),
-            id_employee=request.state.user_id,
-            type_client=client_data.get('type_client')
+            id_employee=request.state.user_id
         )
-        
+
+
         # Ajouter les détails spécifiques
-        if client.type_client == "sorcier" and client_data.get("sorcier"):
+        if  client_data.get("sorcier"):
             sorcier_data = client_data["sorcier"]
             client.sorcier = SorcierDetails(
                 wizard_registry_number=sorcier_data.get("wizard_registry_number"),
@@ -387,8 +386,8 @@ async def modify_client(request: Request, client_data: dict):
                 flight_licence=sorcier_data.get("flight_licence", 0),
                 owls=sorcier_data.get("owls", [])
             )
-        
-        elif client.type_client == "moldu" and client_data.get("moldu"):
+
+        if client_data.get("moldu"):
             moldu_data = client_data["moldu"]
             client.moldu = MolduDetails(
                 national_register_number=moldu_data.get("national_register_number"),
@@ -405,7 +404,7 @@ async def modify_client(request: Request, client_data: dict):
         success = dao.modify_client(client)
         if not success:
             raise HTTPException(status_code=404, detail="Failed to modify client")
-        
+
         return JSONResponse({"success": True, "message": f"Client {client.name} modified successfully"})
     except Exception as e:
         print(f"Erreur modification client: {e}")

@@ -14,11 +14,14 @@ import {
 export function AddClient() {
     const modal = document.getElementById('addClientModal');
     const showBtn = document.getElementById('showAddClientBtn');
-    const closeBtn = modal?.querySelector('.close-modal');
     const form = document.getElementById('addClientForm');
     const clientTypeSelect = document.getElementById('newClientType');
     
-    if (!modal || !showBtn || !closeBtn || !form) return;
+    if (!modal || !showBtn || !form) return;
+    
+    // Récupérer le bouton de fermeture à l'intérieur du modal
+    const closeBtn = modal.querySelector('.close-modal');
+    if (!closeBtn) return;
     
     function getFields() {
         return {
@@ -161,7 +164,6 @@ export function AddClient() {
         }
     }
     
-
     function validateHouseNumberField(field) {
         if (!field) return true;
         
@@ -336,7 +338,6 @@ export function AddClient() {
         }
     }
     
-
     function clearAllErrors() {
         document.querySelectorAll('.error-message').forEach(msg => msg.remove());
         document.querySelectorAll('.error-border, .valid-border').forEach(field => {
@@ -344,47 +345,109 @@ export function AddClient() {
         });
     }
     
-
+    // Fonction toggleFields améliorée avec logs
     function toggleFields() {
-        const isSorcier = clientTypeSelect.value === 'sorcier';
-        const sorcierFields = document.getElementById('sorcierFields');
-        const molduFields = document.getElementById('molduFields');
+        const selectedType = clientTypeSelect.value;
+        const sorcierFieldsDiv = document.getElementById('sorcierFields');
+        const molduFieldsDiv = document.getElementById('molduFields');
+        
+        if (!sorcierFieldsDiv || !molduFieldsDiv) {
+            console.error('Field containers not found!');
+            return;
+        }
+        
         const fields = getFields();
         
-        if (isSorcier) {
-            if (sorcierFields) sorcierFields.style.display = 'block';
-            if (molduFields) molduFields.style.display = 'none';
-            
-            // Marquer les champs Sorcier comme requis
-            if (fields.wizardRegistry) fields.wizardRegistry.required = true;
-            if (fields.chimney) fields.chimney.required = true;
-            if (fields.schoolName) fields.schoolName.required = true;
-            if (fields.house) fields.house.required = true;
-            
-            // Désactiver les champs Moldu
-            if (fields.nationalRegister) fields.nationalRegister.required = false;
-            if (fields.email) fields.email.required = false;
-            if (fields.street) fields.street.required = false;
-            if (fields.city) fields.city.required = false;
-            if (fields.houseNumber) fields.houseNumber.required = false;
-            if (fields.countryMoldu) fields.countryMoldu.required = false;
-        } else {
-            if (sorcierFields) sorcierFields.style.display = 'none';
-            if (molduFields) molduFields.style.display = 'block';
-            
-            // Désactiver les champs Sorcier
-            if (fields.wizardRegistry) fields.wizardRegistry.required = false;
-            if (fields.chimney) fields.chimney.required = false;
-            if (fields.schoolName) fields.schoolName.required = false;
-            if (fields.house) fields.house.required = false;
-            
-            // Marquer les champs Moldu comme requis
-            if (fields.nationalRegister) fields.nationalRegister.required = true;
-            if (fields.email) fields.email.required = true;
-            if (fields.street) fields.street.required = true;
-            if (fields.city) fields.city.required = true;
-            if (fields.houseNumber) fields.houseNumber.required = true;
-            if (fields.countryMoldu) fields.countryMoldu.required = true;
+        switch(selectedType) {
+            case 'sorcier&moldu':
+                sorcierFieldsDiv.style.display = 'block';
+                molduFieldsDiv.style.display = 'block';
+                
+                // Rendre les champs Sorcier requis
+                if (fields.wizardRegistry) fields.wizardRegistry.required = true;
+                if (fields.chimney) fields.chimney.required = true;
+                if (fields.schoolName) fields.schoolName.required = true;
+                if (fields.house) fields.house.required = true;
+                
+                // Rendre les champs Moldu requis
+                if (fields.nationalRegister) fields.nationalRegister.required = true;
+                if (fields.email) fields.email.required = true;
+                if (fields.street) fields.street.required = true;
+                if (fields.city) fields.city.required = true;
+                if (fields.houseNumber) fields.houseNumber.required = true;
+                if (fields.countryMoldu) fields.countryMoldu.required = true;
+                break;
+                
+            case 'sorcier':
+                sorcierFieldsDiv.style.display = 'block';
+                molduFieldsDiv.style.display = 'none';
+                
+                // Rendre les champs Sorcier requis
+                if (fields.wizardRegistry) fields.wizardRegistry.required = true;
+                if (fields.chimney) fields.chimney.required = true;
+                if (fields.schoolName) fields.schoolName.required = true;
+                if (fields.house) fields.house.required = true;
+                
+                // Désactiver les champs Moldu
+                if (fields.nationalRegister) {
+                    fields.nationalRegister.required = false;
+                    fields.nationalRegister.value = '';
+                }
+                if (fields.email) {
+                    fields.email.required = false;
+                    fields.email.value = '';
+                }
+                if (fields.street) {
+                    fields.street.required = false;
+                    fields.street.value = '';
+                }
+                if (fields.city) {
+                    fields.city.required = false;
+                    fields.city.value = '';
+                }
+                if (fields.houseNumber) {
+                    fields.houseNumber.required = false;
+                    fields.houseNumber.value = '';
+                }
+                if (fields.countryMoldu) {
+                    fields.countryMoldu.required = false;
+                    fields.countryMoldu.value = '';
+                }
+                break;
+                
+            case 'moldu':
+                sorcierFieldsDiv.style.display = 'none';
+                molduFieldsDiv.style.display = 'block';
+                
+                // Désactiver les champs Sorcier
+                if (fields.wizardRegistry) {
+                    fields.wizardRegistry.required = false;
+                    fields.wizardRegistry.value = '';
+                }
+                if (fields.chimney) {
+                    fields.chimney.required = false;
+                    fields.chimney.value = '';
+                }
+                if (fields.schoolName) {
+                    fields.schoolName.required = false;
+                    fields.schoolName.value = '';
+                }
+                if (fields.house) {
+                    fields.house.required = false;
+                    fields.house.value = '';
+                }
+                if (fields.country) fields.country.value = 'United Kingdom';
+                if (fields.flightLicence) fields.flightLicence.value = '0';
+                if (fields.owls) fields.owls.value = '';
+                
+                // Rendre les champs Moldu requis
+                if (fields.nationalRegister) fields.nationalRegister.required = true;
+                if (fields.email) fields.email.required = true;
+                if (fields.street) fields.street.required = true;
+                if (fields.city) fields.city.required = true;
+                if (fields.houseNumber) fields.houseNumber.required = true;
+                if (fields.countryMoldu) fields.countryMoldu.required = true;
+                break;
         }
         
         clearAllErrors();
@@ -392,42 +455,39 @@ export function AddClient() {
     
     function validateFormBeforeSubmit() {
         const fields = getFields();
-        const isSorcier = clientTypeSelect.value === 'sorcier';
+        const selectedType = clientTypeSelect.value;
         let isValid = true;
         let firstInvalidField = null;
         
-        // Validation Nom
+        // Validation des champs communs requis
         if (!validateSingleField(fields.nom, regex.name, "Nom", true)) {
             isValid = false;
             if (!firstInvalidField) firstInvalidField = fields.nom;
         }
         
-        // Validation Prénom
         if (!validateSingleField(fields.prenom, regex.surname, "Prénom", true)) {
             isValid = false;
             if (!firstInvalidField) firstInvalidField = fields.prenom;
         }
         
-        // Validation Date
         if (!validateDateField(fields.birthDate)) {
             isValid = false;
             if (!firstInvalidField) firstInvalidField = fields.birthDate;
         }
         
-        // Validation Argent
         if (!validateMoneyField(fields.money)) {
             isValid = false;
             if (!firstInvalidField) firstInvalidField = fields.money;
         }
         
-        // Validation Téléphones
         if (!validateTelephonesField(fields.telephones)) {
             isValid = false;
             if (!firstInvalidField) firstInvalidField = fields.telephones;
         }
         
-        if (isSorcier) {
-            // Validation champs Sorcier requis
+        // Validation selon le type
+        if (selectedType === 'sorcier&moldu' || selectedType === 'sorcier') {
+            // Validation Sorcier requis
             if (!validateSingleField(fields.wizardRegistry, regex.wizardRegistry, "Numéro de registre", true)) {
                 isValid = false;
                 if (!firstInvalidField) firstInvalidField = fields.wizardRegistry;
@@ -444,16 +504,14 @@ export function AddClient() {
                 isValid = false;
                 if (!firstInvalidField) firstInvalidField = fields.house;
             }
-            if (!validateLicenceField(fields.flightLicence)) {
-                isValid = false;
-                if (!firstInvalidField) firstInvalidField = fields.flightLicence;
-            }
-            if (!validateOwlsField(fields.owls)) {
-                isValid = false;
-                if (!firstInvalidField) firstInvalidField = fields.owls;
-            }
-        } else {
-            // Validation champs Moldu requis
+            
+            // Validation optionnelles
+            validateLicenceField(fields.flightLicence);
+            validateOwlsField(fields.owls);
+        }
+        
+        if (selectedType === 'sorcier&moldu' || selectedType === 'moldu') {
+            // Validation Moldu requis
             if (!validateSingleField(fields.nationalRegister, regex.nationalRegister, "Numéro de registre national", true)) {
                 isValid = false;
                 if (!firstInvalidField) firstInvalidField = fields.nationalRegister;
@@ -470,14 +528,13 @@ export function AddClient() {
                 isValid = false;
                 if (!firstInvalidField) firstInvalidField = fields.city;
             }
-            if (!validateHouseNumberField(fields.houseNumber)) {
-                isValid = false;
-                if (!firstInvalidField) firstInvalidField = fields.houseNumber;
-            }
             if (!validateSingleField(fields.countryMoldu, regex.country, "Pays", true)) {
                 isValid = false;
                 if (!firstInvalidField) firstInvalidField = fields.countryMoldu;
             }
+            
+            // Validation optionnelle
+            validateHouseNumberField(fields.houseNumber);
         }
         
         if (!isValid && firstInvalidField) {
@@ -489,40 +546,38 @@ export function AddClient() {
     }
     
     function resetForm() {
-        const form = document.getElementById('addClientForm');
-        if (form) form.reset();
-        
-        const select = document.getElementById('newClientType');
-        if (select) select.value = 'sorcier';
-        
+        form.reset();
+        clientTypeSelect.value = 'sorcier';
         clearAllErrors();
         toggleFields();
     }
     
+    // Événement change pour le type de client
+    clientTypeSelect.addEventListener('change', function(e) {
+        toggleFields();
+        // Ré-attacher les validations après le changement
+        setTimeout(() => {
+            attachRealtimeValidations();
+        }, 100);
+    });
     
-    // Ré-attacher les validations à chaque ouverture (pour être sûr)
+    // Ouvrir le modal
     showBtn.addEventListener('click', () => {
         resetForm();
         modal.style.display = 'flex';
-        // Petit délai pour que les champs soient bien dans le DOM
+        // S'assurer que le select a bien son événement
         setTimeout(() => {
             attachRealtimeValidations();
-        }, 50);
+        }, 100);
     });
     
-    clientTypeSelect.addEventListener('change', () => {
-        toggleFields();
-        // Ré-attacher les validations après le changement de type
-        setTimeout(() => {
-            attachRealtimeValidations();
-        }, 50);
-    });
-    
+    // Fermer le modal
     closeBtn.addEventListener('click', () => {
         modal.style.display = 'none';
         resetForm();
     });
     
+    // Fermer en cliquant à l'extérieur
     window.addEventListener('click', (e) => {
         if (e.target === modal) {
             modal.style.display = 'none';
@@ -530,53 +585,62 @@ export function AddClient() {
         }
     });
     
-    // Remplacer le formulaire pour éviter les événements en double
-    const newForm = form.cloneNode(true);
-    form.parentNode.replaceChild(newForm, form);
-    
-    // Ré-attacher les références après le remplacement
-    setTimeout(() => {
-        attachRealtimeValidations();
-    }, 100);
-    
-    newForm.addEventListener('submit', async (e) => {
+    // Soumission du formulaire
+    form.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        // Ré-attacher les validations une dernière fois
         attachRealtimeValidations();
         
         const isValid = validateFormBeforeSubmit();
         if (!isValid) return;
         
         const fields = getFields();
-        const isSorcier = clientTypeSelect.value === 'sorcier';
+        const selectedType = clientTypeSelect.value;
         
         const clientData = {
             name: fields.nom.value,
             surname: fields.prenom.value,
             birth_date: fields.birthDate.value,
             money: parseFloat(fields.money.value) || 0,
-            type_client: isSorcier ? 'sorcier' : 'moldu',
+            type_client: selectedType,
             telephones: fields.telephones.value.split(',').map(t => t.trim()).filter(t => t),
         };
         
-        if (isSorcier) {
+        if (selectedType === 'sorcier&moldu') {
             clientData.sorcier = {
                 wizard_registry_number: parseInt(fields.wizardRegistry.value),
                 chimney: fields.chimney.value,
                 add_school_name: fields.schoolName.value,
                 add_house: fields.house.value,
-                add_country: fields.country.value || 'UK',
+                add_country: fields.country.value || 'United Kingdom',
                 flight_licence: parseInt(fields.flightLicence.value) || 0,
                 owls: fields.owls.value.split(',').map(o => o.trim()).filter(o => o)
             };
-        } else {
             clientData.moldu = {
                 national_register_number: parseInt(fields.nationalRegister.value),
                 mail: fields.email.value,
                 add_street: fields.street.value,
                 add_city: fields.city.value,
-                add_house_number: fields.houseNumber.value,
+                add_house_number: fields.houseNumber.value || '',
+                add_country: fields.countryMoldu.value
+            };
+        } else if (selectedType === 'sorcier') {
+            clientData.sorcier = {
+                wizard_registry_number: parseInt(fields.wizardRegistry.value),
+                chimney: fields.chimney.value,
+                add_school_name: fields.schoolName.value,
+                add_house: fields.house.value,
+                add_country: fields.country.value || 'United Kingdom',
+                flight_licence: parseInt(fields.flightLicence.value) || 0,
+                owls: fields.owls.value.split(',').map(o => o.trim()).filter(o => o)
+            };
+        } else if (selectedType === 'moldu') {
+            clientData.moldu = {
+                national_register_number: parseInt(fields.nationalRegister.value),
+                mail: fields.email.value,
+                add_street: fields.street.value,
+                add_city: fields.city.value,
+                add_house_number: fields.houseNumber.value || '',
                 add_country: fields.countryMoldu.value
             };
         }
@@ -607,4 +671,7 @@ export function AddClient() {
             alert('Erreur réseau');
         }
     });
+    
+    // Initialiser l'affichage par défaut
+    toggleFields();
 }

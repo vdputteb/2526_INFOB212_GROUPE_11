@@ -87,26 +87,11 @@ class Client(BaseModel):
     birth_date: date
     money: float = Field(ge=0)
     id_employee: Optional[int] = None  # Employee qui a créé/enregistré le client
-    type_client: str  # 'sorcier' ou 'moldu'
     telephones: List[str] = Field(default_factory=list)
     
     # Champs conditionnels selon le type
     sorcier: Optional[SorcierDetails] = None
     moldu: Optional[MolduDetails] = None
-    
-    @field_validator('type_client')
-    @classmethod
-    def validate_type_client(cls, v: str) -> str:
-        if v not in ['sorcier', 'moldu']:
-            raise ValueError('type_client must be "sorcier" or "moldu"')
-        return v
-    
-    @field_validator('birth_date')
-    @classmethod
-    def validate_birth_date(cls, v: date) -> date:
-        if v > date.today():
-            raise ValueError('Birth date cannot be in the future')
-        return v
 
 
 # --- Modèles pour les BALAIS ---

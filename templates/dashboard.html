@@ -269,6 +269,7 @@
                 <select id="newClientType" required>
                     <option value="sorcier">Sorcier</option>
                     <option value="moldu">Moldu</option>
+                    <option value="sorcier&moldu">Sorcier & Moldu</option>
                 </select>
             </div>
             
@@ -356,10 +357,13 @@
         </div>
         
         <form id="modifyClientForm">
-            <!-- Type de client (lecture seule car ne peut pas être modifié) -->
             <div class="form-group">
-                <label for="modifyClientTypeDisplay">Type de client :</label>
-                <div id="modifyClientTypeDisplay" class="client-type-display"></div>
+                <label for="modifyClientType">Type de client *</label>
+                <select id="modifyClientType" required>
+                    <option value="sorcier">🧙 Sorcier uniquement</option>
+                    <option value="moldu">🏠 Moldu uniquement</option>
+                    <option value="sorcier&moldu">🧙 Sorcier & 🏠 Moldu</option>
+                </select>
             </div>
             
             <!-- Informations générales -->
@@ -384,12 +388,6 @@
                     <label for="modifyClientMoney">Argent (€)</label>
                     <input type="number" id="modifyClientMoney" name="money" step="0.01" value="0">
                 </div>
-            </div>
-            
-            <div class="form-group">
-                <label for="modifyClientPhones">Téléphones (séparés par des virgules)</label>
-                <input type="text" id="modifyClientPhones" name="telephones" placeholder="+33123456789, +33987654321">
-                <small>Format: +33XXXXXXXXX ou 0XXXXXXXXX</small>
             </div>
             
             <!-- Champs Sorcier - ID unique pour le modal de modification -->
@@ -480,6 +478,11 @@
                         <label for="modifyMolduCountry">Pays *</label>
                         <input type="text" id="modifyMolduCountry" name="countryMoldu" value="France">
                         <small>Pays de résidence</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="modifyClientPhones">Téléphones (séparés par des virgules)</label>
+                        <input type="text" id="modifyClientPhones" name="telephones" placeholder="+33123456789, +33987654321">
+                        <small>Format: +33XXXXXXXXX ou 0XXXXXXXXX</small>
                     </div>
                 </div>
             </div>

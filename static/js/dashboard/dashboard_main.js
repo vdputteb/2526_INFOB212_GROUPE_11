@@ -179,10 +179,12 @@ function displayClientInfo(client) {
     if (typeElem) typeElem.innerHTML = (client.SORCIER == 1) ? '🧙 Sorcier' : '🏠 Moldu';
     if (moneyElem) moneyElem.textContent = client.money ? parseFloat(client.money).toFixed(2) : '0.00';
     
+    sorcierDetails.style.display = 'none';
+    molduDetails.style.display = 'none';
+
     // Afficher les détails spécifiques
     if (client.SORCIER == 1 && sorcierDetails && molduDetails) {
         sorcierDetails.style.display = 'block';
-        molduDetails.style.display = 'none';
         
         const emailElem = document.getElementById('clientEmail');
         const adresseElem = document.getElementById('clientAdresse');
@@ -206,8 +208,8 @@ function displayClientInfo(client) {
         const owls = client.sorcier?.owls || [];
         if (telephoneElem) telephoneElem.textContent = owls.length > 0 ? owls.join(', ') : 'Aucun';
         
-    } else if (client.MOLDU == 1 && sorcierDetails && molduDetails) {
-        sorcierDetails.style.display = 'none';
+    } 
+    if (client.MOLDU == 1 && sorcierDetails && molduDetails) {
         molduDetails.style.display = 'block';
         
         const emailElem = document.getElementById('clientEmail');

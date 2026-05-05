@@ -451,7 +451,7 @@ class DAOMySQL:
                     client['owls'] = [owl for owl in client['owls'] if owl]
                 cursor2.close()
             
-            elif client['MOLDU'] == 1:
+            if client['MOLDU'] == 1:
                 cursor2 = conn.cursor(pymysql.cursors.DictCursor)
                 cursor2.execute("""
                     SELECT National_register_number, Mail, Add_Street, Add_City,
@@ -480,12 +480,12 @@ class DAOMySQL:
             """, (
                 client.name, client.surname, client.birth_date, client.money,
                 client.id_employee,
-                1 if client.type_client == "sorcier" else 0,
-                1 if client.type_client == "moldu" else 0,
+                1 if client.sorcier  else 0,
+                1 if client.moldu else 0,
             ))
             client_id = cursor.lastrowid
             
-            if client.type_client == "sorcier" and client.sorcier:
+            if client.sorcier:
                 cursor.execute("""
                     INSERT INTO SORCIER (id_client, Wizard_registry_number, Chimney, 
                                        Add_School_name, Add_House, Add_Country, 
@@ -500,7 +500,7 @@ class DAOMySQL:
                     client.sorcier.owls[2] if len(client.sorcier.owls) > 2 else None
                 ))
             
-            elif client.type_client == "moldu" and client.moldu:
+            if client.moldu:
                 cursor.execute("""
                     INSERT INTO MOLDU (id_client, National_register_number, Mail,
                                      Add_Street, Add_City, Add_House_number, Add_Country,
@@ -531,44 +531,100 @@ class DAOMySQL:
         conn = self._get_connection()
         cursor = conn.cursor()
         try:
+            # Mise à jour du client principal avec les flags sorcier et moldu
             cursor.execute("""
                 UPDATE CLIENT 
-                SET name = %s, surname = %s, birth_date = %s, money = %s, id_employee = %s
+                SET name = %s, surname = %s, birth_date = %s, money = %s, id_employee = %s,
+                    SORCIER = %s, MOLDU = %s
                 WHERE id_client = %s
-            """, (client.name, client.surname, client.birth_date, client.money, client.id_employee, client.id_client))
+            """, (client.name, client.surname, client.birth_date, client.money, 
+                client.id_employee, 
+                1 if client.sorcier else 0,
+                1 if client.moldu else 0,
+                client.id_client))
             
+            # Gestion du sorcier
             if client.sorcier:
-                cursor.execute("""
-                    UPDATE SORCIER 
-                    SET Wizard_registry_number = %s, Chimney = %s, Add_School_name = %s,
-                        Add_House = %s, Add_Country = %s, Flight_licence = %s,
-                        Owls_number1 = %s, Owls_number2 = %s, Owls_number3 = %s
-                    WHERE id_client = %s
-                """, (
-                    client.sorcier.wizard_registry_number, client.sorcier.chimney,
-                    client.sorcier.add_school_name, client.sorcier.add_house,
-                    client.sorcier.add_country, client.sorcier.flight_licence,
-                    client.sorcier.owls[0] if len(client.sorcier.owls) > 0 else None,
-                    client.sorcier.owls[1] if len(client.sorcier.owls) > 1 else None,
-                    client.sorcier.owls[2] if len(client.sorcier.owls) > 2 else None,
-                    client.id_client
-                ))
-            elif client.moldu:
-                cursor.execute("""
-                    UPDATE MOLDU 
-                    SET National_register_number = %s, Mail = %s, Add_Street = %s,
-                        Add_City = %s, Add_House_number = %s, Add_Country = %s,
-                        tel1 = %s, tel2 = %s, tel3 = %s
-                    WHERE id_client = %s
-                """, (
-                    client.moldu.national_register_number, client.moldu.mail,
-                    client.moldu.address.street, client.moldu.address.city,
-                    client.moldu.address.house_number, client.moldu.address.country,
-                    client.moldu.telephones[0] if len(client.moldu.telephones) > 0 else None,
-                    client.moldu.telephones[1] if len(client.moldu.telephones) > 1 else None,
-                    client.moldu.telephones[2] if len(client.moldu.telephones) > 2 else None,
-                    client.id_client
-                ))
+                # Vérifier si le client est déjà un sorcier
+                cursor.execute("SELECT 1 FROM SORCIER WHERE id_client = %s", (client.id_client,))
+                exists = cursor.fetchone()
+                
+                if exists:
+                    # Mise à jour
+                    cursor.execute("""
+                        UPDATE SORCIER 
+                        SET Wizard_registry_number = %s, Chimney = %s, Add_School_name = %s,
+                            Add_House = %s, Add_Country = %s, Flight_licence = %s,
+                            Owls_number1 = %s, Owls_number2 = %s, Owls_number3 = %s
+                        WHERE id_client = %s
+                    """, (
+                        client.sorcier.wizard_registry_number, client.sorcier.chimney,
+                        client.sorcier.add_school_name, client.sorcier.add_house,
+                        client.sorcier.add_country, client.sorcier.flight_licence,
+                        client.sorcier.owls[0] if len(client.sorcier.owls) > 0 else None,
+                        client.sorcier.owls[1] if len(client.sorcier.owls) > 1 else None,
+                        client.sorcier.owls[2] if len(client.sorcier.owls) > 2 else None,
+                        client.id_client
+                    ))
+                else:
+                    # Insertion d'un nouveau sorcier
+                    cursor.execute("""
+                        INSERT INTO SORCIER (id_client, Wizard_registry_number, Chimney, Add_School_name,
+                                            Add_House, Add_Country, Flight_licence, Owls_number1,
+                                            Owls_number2, Owls_number3)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        client.id_client, client.sorcier.wizard_registry_number, client.sorcier.chimney,
+                        client.sorcier.add_school_name, client.sorcier.add_house,
+                        client.sorcier.add_country, client.sorcier.flight_licence,
+                        client.sorcier.owls[0] if len(client.sorcier.owls) > 0 else None,
+                        client.sorcier.owls[1] if len(client.sorcier.owls) > 1 else None,
+                        client.sorcier.owls[2] if len(client.sorcier.owls) > 2 else None
+                    ))
+            else:
+                # Si le client n'est plus sorcier, supprimer l'entrée SORCIER
+                cursor.execute("DELETE FROM SORCIER WHERE id_client = %s", (client.id_client,))
+            
+            # Gestion du moldu
+            if client.moldu:
+                # Vérifier si le client est déjà un moldu
+                cursor.execute("SELECT 1 FROM MOLDU WHERE id_client = %s", (client.id_client,))
+                exists = cursor.fetchone()
+                print(client.moldu.telephones)
+                if exists:
+                    # Mise à jour
+                    cursor.execute("""
+                        UPDATE MOLDU 
+                        SET National_register_number = %s, Mail = %s, Add_Street = %s,
+                            Add_City = %s, Add_House_number = %s, Add_Country = %s,
+                            tel1 = %s, tel2 = %s, tel3 = %s
+                        WHERE id_client = %s
+                    """, (
+                        client.moldu.national_register_number, client.moldu.mail,
+                        client.moldu.address.street, client.moldu.address.city,
+                        client.moldu.address.house_number, client.moldu.address.country,
+                        client.moldu.telephones[0] if len(client.moldu.telephones) > 0 else None,
+                        client.moldu.telephones[1] if len(client.moldu.telephones) > 1 else None,
+                        client.moldu.telephones[2] if len(client.moldu.telephones) > 2 else None,
+                        client.id_client
+                    ))
+                else:
+                    # Insertion d'un nouveau moldu
+                    cursor.execute("""
+                        INSERT INTO MOLDU (id_client, National_register_number, Mail, Add_Street,
+                                        Add_City, Add_House_number, Add_Country, tel1, tel2, tel3)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """, (
+                        client.id_client, client.moldu.national_register_number, client.moldu.mail,
+                        client.moldu.address.street, client.moldu.address.city,
+                        client.moldu.address.house_number, client.moldu.address.country,
+                        client.moldu.telephones[0] if len(client.moldu.telephones) > 0 else None,
+                        client.moldu.telephones[1] if len(client.moldu.telephones) > 1 else None,
+                        client.moldu.telephones[2] if len(client.moldu.telephones) > 2 else None
+                    ))
+            else:
+                # Si le client n'est plus moldu, supprimer l'entrée MOLDU
+                cursor.execute("DELETE FROM MOLDU WHERE id_client = %s", (client.id_client,))
             
             conn.commit()
             return True
@@ -619,6 +675,7 @@ class DAOMySQL:
         cursor.close()
         conn.close()
         return results
+
 
     def get_broom_by_id(self, broom_id: int) -> Optional[Dict]:
         """Récupère un balai par son ID"""
