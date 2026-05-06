@@ -1,6 +1,7 @@
 from os import getenv
 from datetime import date, timedelta
 from dotenv import load_dotenv
+import pymysql
 import uvicorn
 import bcrypt
 from fastapi import FastAPI, HTTPException, Request
@@ -911,6 +912,45 @@ async def get_admin_stats(request: Request, period: str = "all", start_date: str
         stats = dao.get_admin_stats()
     
     return JSONResponse({"success": True, "stats": stats})
+
+@app.get("/api/admin/stats/detailed")
+@require_role(["admin"])
+async def get_detailed_stats(request: Request, period: str = "all", start_date: str = None, end_date: str = None):
+    """Récupère les statistiques détaillées pour l'administrateur"""
+    # Gérer les périodes prédéfinies
+    if period != "all" and not start_date and not end_date:
+        today = date.today()
+        if period == "last7":
+            start_date = (today - timedelta(days=7)).isoformat()
+            end_date = today.isoformat()
+        elif period == "last30":
+            start_date = (today - timedelta(days=30)).isoformat()
+            end_date = today.isoformat()
+        elif period == "last90":
+            start_date = (today - timedelta(days=90)).isoformat()
+            end_date = today.isoformat()
+        elif period == "year":
+            start_date = date(today.year, 1, 1).isoformat()
+            end_date = today.isoformat()
+
+    result = {}
+
+    if start_date and end_date:
+        # Utiliser les méthodes DAO avec filtrage par date
+        result['ventes_detaillees'] = dao.get_ventes_by_date_range(start_date, end_date)
+        result['locations_detaillees'] = dao.get_locations_by_date_range(start_date, end_date)
+        result['commandes_fournisseur'] = dao.get_commandes_fournisseur_by_date_range(start_date, end_date)
+        result['statistiques'] = dao.get_admin_stats_by_period(start_date, end_date)
+    else:
+        result['ventes_detaillees'] = dao.get_all_ventes()
+        result['locations_detaillees'] = dao.get_all_locations()
+        result['commandes_fournisseur'] = dao.get_all_commandes_fournisseur()
+        result['statistiques'] = dao.get_admin_stats()
+
+    # Récupérer tous les balais (pas besoin de filtre temporel)
+    result['balais_stock'] = dao.get_all_brooms()
+
+    return JSONResponse({"success": True, "stats": result})
 
 
 # --- Lancement ---

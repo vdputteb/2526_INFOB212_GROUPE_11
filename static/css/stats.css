@@ -493,3 +493,79 @@ canvas {
     pointer-events: none;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
+
+/* Badges de statut */
+.status-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.badge-success {
+    background-color: #27ae60;
+    color: white;
+}
+
+.badge-warning {
+    background-color: #f39c12;
+    color: #2c3e50;
+}
+
+.badge-danger {
+    background-color: #e74c3c;
+    color: white;
+}
+
+.badge-info {
+    background-color: #3498db;
+    color: white;
+}
+
+.badge-secondary {
+    background-color: #95a5a6;
+    color: white;
+}
+
+/* Boutons de filtre pour les balais */
+.stock-filter-btn {
+    background-color: #f8f9fa;
+    border: 1px solid #ddd;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.stock-filter-btn:hover {
+    background-color: #e9ecef;
+    border-color: #f39c12;
+}
+
+.stock-filter-btn.active {
+    background-color: #f39c12;
+    border-color: #f39c12;
+    color: white;
+}
+
+/* Couleurs de texte pour l'usure */
+.text-info {
+    color: #3498db;
+}
+
+/* Responsive pour les nouvelles sections */
+@media (max-width: 768px) {
+    .stock-filter-btn {
+        padding: 6px 12px;
+        font-size: 11px;
+    }
+    
+    #balais-stock-table td,
+    #balais-stock-table th {
+        padding: 8px 10px;
+        font-size: 11px;
+    }
+}

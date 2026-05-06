@@ -57,7 +57,7 @@ function createVendeursRows(tbody, vendeurs) {
         return;
     }
 
-    const maxCa = Math.max(...vendeurs.map(v => v.ca_ventes || 0), 1);
+    const maxCa = Math.max(...vendeurs.map(v => v.ca_ventes + (v.ca_locations || 0) || 0), 1);
 
     vendeurs.forEach(vendeur => {
         const ca = vendeur.ca_ventes || 0;
@@ -1032,35 +1032,6 @@ function createLocationsDetailsSection(container, stats) {
     container.appendChild(locationsSection);
 }
 
-// Fonction principale de rendu
-function renderStats(stats) {
-    const container = document.getElementById('stats-content');
-    if (!container) return;
-    
-    while (container.firstChild) {
-        container.removeChild(container.firstChild);
-    }
-    
-    createKpiCards(container, stats);
-    createLocationsSummary(container, stats);
-    createMainChartsSection(container);
-    createLocationsDetailsSection(container, stats);
-    createVendeursSection(container, stats);
-    createFournisseursSection(container, stats);
-    createRepartitionSection(container);
-    createExtraChartsSection(container);
-
-    setTimeout(() => {
-        const monthlyData = stats.data_par_mois || [];
-        createVentesChart(monthlyData, stats);
-        createCumulativeNetChart(monthlyData);
-        createMarginChart(monthlyData);
-        createTopBalaisChart(stats.top_balais || []);
-        createRepartitionChart(stats.ventes_count || 0, stats.locations_count || 0);
-        createLocationStatusChart(stats.location_status || {});
-    }, 100);
-}
-
 // Afficher un message de chargement
 function showLoadingMessage(container, message, isError = false, errorDetail = '') {
     if (!container) return;
@@ -1083,6 +1054,510 @@ function showLoadingMessage(container, message, isError = false, errorDetail = '
     }
     
     container.appendChild(loadingDiv);
+}
+
+// Créer la section des ventes
+function createVentesSection(container, stats) {
+    if (!stats.ventes_detaillees || stats.ventes_detaillees.length === 0) {
+        return;
+    }
+    
+    const ventesSection = document.createElement('div');
+    ventesSection.className = 'vendeurs-section';
+    
+    const sectionTitle = document.createElement('div');
+    sectionTitle.className = 'section-title';
+    const titleSpan = document.createElement('span');
+    titleSpan.textContent = '💰';
+    sectionTitle.appendChild(titleSpan);
+    sectionTitle.appendChild(document.createTextNode(' Toutes les ventes'));
+    ventesSection.appendChild(sectionTitle);
+    
+    // Ajouter un résumé des ventes
+    const summaryDiv = document.createElement('div');
+    summaryDiv.style.cssText = 'display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;';
+    
+    const totalVentes = stats.ventes_detaillees.length;
+    const totalCaVentes = stats.ventes_detaillees.reduce((sum, v) => sum + (v.total_amount || 0), 0);
+    const moyenneVente = totalVentes > 0 ? totalCaVentes / totalVentes : 0;
+    
+    const summaryItems = [
+        { label: 'Nombre total de ventes', value: formatNumber(totalVentes), color: '#27ae60' },
+        { label: 'CA total des ventes', value: formatCurrency(totalCaVentes), color: '#27ae60' },
+        { label: 'Panier moyen', value: formatCurrency(moyenneVente), color: '#f39c12' }
+    ];
+    
+    summaryItems.forEach(item => {
+        const statDiv = document.createElement('div');
+        statDiv.style.cssText = 'background: #f8f9fa; padding: 15px; border-radius: 8px; flex: 1; min-width: 150px;';
+        statDiv.innerHTML = `
+            <div style="font-size: 12px; color: #7f8c8d;">${item.label}</div>
+            <div style="font-size: 20px; font-weight: bold; color: ${item.color};">${item.value}</div>
+        `;
+        summaryDiv.appendChild(statDiv);
+    });
+    
+    ventesSection.appendChild(summaryDiv);
+    
+    // Créer le tableau des ventes
+    const table = document.createElement('table');
+    table.className = 'vendeurs-table';
+    
+    const thead = document.createElement('thead');
+    const headerRow = thead.insertRow();
+    const headers = ['ID Commande', 'Client', 'Date', 'Montant total', 'Balais vendus', 'Vendeur'];
+    headers.forEach(headerText => {
+        const th = document.createElement('th');
+        th.textContent = headerText;
+        headerRow.appendChild(th);
+    });
+    table.appendChild(thead);
+    
+    const tbody = document.createElement('tbody');
+    
+    stats.ventes_detaillees.forEach(vente => {
+        const row = tbody.insertRow();
+        
+        row.insertCell(0).textContent = vente.id_commande || '-';
+        row.insertCell(1).textContent = `${vente.client_name || ''} ${vente.client_surname || ''}`.trim() || '-';
+        row.insertCell(2).textContent = vente.sale_date || '-';
+        
+        const amountCell = row.insertCell(3);
+        amountCell.className = 'ca-value';
+        amountCell.textContent = formatCurrency(vente.total_amount || 0);
+        
+        const itemsCell = row.insertCell(4);
+        if (vente.items && vente.items.length > 0) {
+            itemsCell.innerHTML = vente.items.map(item => `${item.broom_name || 'Balai'} (${formatCurrency(item.sale_price || 0)})`).join('<br>');
+        } else {
+            itemsCell.textContent = '-';
+        }
+        
+        row.insertCell(5).textContent = `${vente.employee_name || ''} ${vente.employee_surname || ''}`.trim() || '-';
+    });
+    
+    table.appendChild(tbody);
+    ventesSection.appendChild(table);
+    container.appendChild(ventesSection);
+}
+
+// Créer la section des locations
+function createLocationsListSection(container, stats) {
+    if (!stats.locations_detaillees || stats.locations_detaillees.length === 0) {
+        return;
+    }
+    
+    const locationsSection = document.createElement('div');
+    locationsSection.className = 'vendeurs-section';
+    
+    const sectionTitle = document.createElement('div');
+    sectionTitle.className = 'section-title';
+    const titleSpan = document.createElement('span');
+    titleSpan.textContent = '🏠';
+    sectionTitle.appendChild(titleSpan);
+    sectionTitle.appendChild(document.createTextNode(' Toutes les locations'));
+    locationsSection.appendChild(sectionTitle);
+    
+    // Ajouter un résumé des locations
+    const summaryDiv = document.createElement('div');
+    summaryDiv.style.cssText = 'display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;';
+    
+    const totalLocations = stats.locations_detaillees.length;
+    const locationsTerminees = stats.locations_detaillees.filter(l => l.status === 'Finished').length;
+    const locationsEnCours = stats.locations_detaillees.filter(l => l.status === 'in Progress').length;
+    const locationsEnAttente = stats.locations_detaillees.filter(l => l.status === 'Pending').length;
+    const caLocationsTotal = stats.locations_detaillees.reduce((sum, l) => sum + (l.total_amount || 0), 0);
+    
+    const summaryItems = [
+        { label: 'Total locations', value: formatNumber(totalLocations), color: '#3498db' },
+        { label: 'Terminées', value: formatNumber(locationsTerminees), color: '#27ae60' },
+        { label: 'En cours', value: formatNumber(locationsEnCours), color: '#f39c12' },
+        { label: 'En attente', value: formatNumber(locationsEnAttente), color: '#e74c3c' },
+        { label: 'CA total locations', value: formatCurrency(caLocationsTotal), color: '#9b59b6' }
+    ];
+    
+    summaryItems.forEach(item => {
+        const statDiv = document.createElement('div');
+        statDiv.style.cssText = 'background: #f8f9fa; padding: 15px; border-radius: 8px; flex: 1; min-width: 120px;';
+        statDiv.innerHTML = `
+            <div style="font-size: 12px; color: #7f8c8d;">${item.label}</div>
+            <div style="font-size: 20px; font-weight: bold; color: ${item.color};">${item.value}</div>
+        `;
+        summaryDiv.appendChild(statDiv);
+    });
+    
+    locationsSection.appendChild(summaryDiv);
+    
+    // Créer le tableau des locations
+    const table = document.createElement('table');
+    table.className = 'vendeurs-table';
+    
+    const thead = document.createElement('thead');
+    const headerRow = thead.insertRow();
+    const headers = ['ID Commande', 'Client', 'Balais', 'Début', 'Fin prévue', 'Fin réelle', 'Durée (jours)', 'Montant', 'Statut'];
+    headers.forEach(headerText => {
+        const th = document.createElement('th');
+        th.textContent = headerText;
+        headerRow.appendChild(th);
+    });
+    table.appendChild(thead);
+    
+    const tbody = document.createElement('tbody');
+    
+    const getStatusBadge = (status) => {
+        const badges = {
+            'Finished': { text: 'Terminée', class: 'badge-success' },
+            'in Progress': { text: 'En cours', class: 'badge-warning' },
+            'Pending': { text: 'En attente', class: 'badge-danger' }
+        };
+        const badge = badges[status] || { text: status, class: 'badge-secondary' };
+        return `<span class="status-badge ${badge.class}">${badge.text}</span>`;
+    };
+    
+    stats.locations_detaillees.forEach(location => {
+        const row = tbody.insertRow();
+        
+        row.insertCell(0).textContent = location.id_commande || '-';
+        row.insertCell(1).textContent = `${location.client_name || ''} ${location.client_surname || ''}`.trim() || '-';
+        
+        const broomsCell = row.insertCell(2);
+        if (location.brooms && location.brooms.length > 0) {
+            broomsCell.innerHTML = location.brooms.map(b => `${b.broom_name || 'Balai'} (${formatCurrency(b.location_price || 0)}/jour)`).join('<br>');
+        } else {
+            broomsCell.textContent = '-';
+        }
+        
+        row.insertCell(3).textContent = location.begin_date || '-';
+        row.insertCell(4).textContent = location.end_date || '-';
+        row.insertCell(5).textContent = location.actual_end_date || 'Non retourné';
+        
+        // Calculer la durée
+        let duration = '-';
+        if (location.begin_date) {
+            const end = location.actual_end_date || location.end_date;
+            if (end) {
+                const startDate = new Date(location.begin_date);
+                const endDate = new Date(end);
+                const diffTime = Math.abs(endDate - startDate);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                duration = diffDays;
+            }
+        }
+        row.insertCell(6).textContent = duration;
+        
+        const amountCell = row.insertCell(7);
+        amountCell.className = 'ca-value';
+        amountCell.textContent = formatCurrency(location.total_amount || 0);
+        
+        row.insertCell(8).innerHTML = getStatusBadge(location.status);
+    });
+    
+    table.appendChild(tbody);
+    locationsSection.appendChild(table);
+    container.appendChild(locationsSection);
+}
+
+// Créer la section des commandes fournisseurs
+function createCommandesFournisseurSection(container, stats) {
+    if (!stats.commandes_fournisseur || stats.commandes_fournisseur.length === 0) {
+        return;
+    }
+    
+    const commandesSection = document.createElement('div');
+    commandesSection.className = 'vendeurs-section';
+    
+    const sectionTitle = document.createElement('div');
+    sectionTitle.className = 'section-title';
+    const titleSpan = document.createElement('span');
+    titleSpan.textContent = '📦';
+    sectionTitle.appendChild(titleSpan);
+    sectionTitle.appendChild(document.createTextNode(' Commandes fournisseurs'));
+    commandesSection.appendChild(sectionTitle);
+    
+    // Ajouter un résumé des commandes
+    const summaryDiv = document.createElement('div');
+    summaryDiv.style.cssText = 'display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;';
+    
+    const totalCommandes = stats.commandes_fournisseur.length;
+    const totalDepensesCommandes = stats.commandes_fournisseur.reduce((sum, cmd) => sum + (cmd.total_depense || 0), 0);
+    const totalBalaisCommandes = stats.commandes_fournisseur.reduce((sum, cmd) => sum + (cmd.total_articles || 0), 0);
+    const commandesEnAttente = stats.commandes_fournisseur.filter(cmd => cmd.status === 'Pending Approuval' || cmd.status === 'Pending').length;
+    
+    const summaryItems = [
+        { label: 'Total commandes', value: formatNumber(totalCommandes), color: '#9b59b6' },
+        { label: 'Dépenses totales', value: formatCurrency(totalDepensesCommandes), color: '#e74c3c' },
+        { label: 'Balais commandés', value: formatNumber(totalBalaisCommandes), color: '#3498db' },
+        { label: 'En attente', value: formatNumber(commandesEnAttente), color: '#f39c12' },
+        { label: 'Dépense moyenne/commande', value: formatCurrency(totalCommandes > 0 ? totalDepensesCommandes / totalCommandes : 0), color: '#e67e22' }
+    ];
+    
+    summaryItems.forEach(item => {
+        const statDiv = document.createElement('div');
+        statDiv.style.cssText = 'background: #f8f9fa; padding: 15px; border-radius: 8px; flex: 1; min-width: 150px;';
+        statDiv.innerHTML = `
+            <div style="font-size: 12px; color: #7f8c8d;">${item.label}</div>
+            <div style="font-size: 20px; font-weight: bold; color: ${item.color};">${item.value}</div>
+        `;
+        summaryDiv.appendChild(statDiv);
+    });
+    
+    commandesSection.appendChild(summaryDiv);
+    
+    // Créer le tableau des commandes
+    const table = document.createElement('table');
+    table.className = 'vendeurs-table';
+    
+    const thead = document.createElement('thead');
+    const headerRow = thead.insertRow();
+    const headers = ['ID', 'Date commande', 'Fournisseur', 'Vendeur', 'Statut', 'Articles', 'Montant total'];
+    headers.forEach(headerText => {
+        const th = document.createElement('th');
+        th.textContent = headerText;
+        headerRow.appendChild(th);
+    });
+    table.appendChild(thead);
+    
+    const tbody = document.createElement('tbody');
+    
+    const getStatusBadge = (status) => {
+        const badges = {
+            'Finished': { text: 'Terminée', class: 'badge-success' },
+            'In transit': { text: 'En transit', class: 'badge-warning' },
+            'Processing': { text: 'En traitement', class: 'badge-info' },
+            'Pending': { text: 'En attente', class: 'badge-warning' },
+            'Pending Approuval': { text: 'En attente validation', class: 'badge-danger' },
+            'Cancelled': { text: 'Annulée', class: 'badge-danger' }
+        };
+        const badge = badges[status] || { text: status, class: 'badge-secondary' };
+        return `<span class="status-badge ${badge.class}">${badge.text}</span>`;
+    };
+    
+    stats.commandes_fournisseur.forEach(commande => {
+        const row = tbody.insertRow();
+        
+        row.insertCell(0).textContent = commande.id_commande || '-';
+        row.insertCell(1).textContent = commande.command_date || '-';
+        
+        // Fournisseur (prendre le premier item ou afficher inconnu)
+        const fournisseur = commande.items && commande.items[0] ? commande.items[0].fournisseur_name : 'Inconnu';
+        row.insertCell(2).textContent = fournisseur;
+        
+        row.insertCell(3).textContent = `${commande.vendeur_name || ''} ${commande.vendeur_surname || ''}`.trim() || '-';
+        row.insertCell(4).innerHTML = getStatusBadge(commande.status);
+        
+        const articlesCell = row.insertCell(5);
+        if (commande.items && commande.items.length > 0) {
+            articlesCell.innerHTML = commande.items.map(item => 
+                `${item.broom_name || 'Balai'} (x${item.quantity || 0}) - ${formatCurrency(item.total_price || 0)}`
+            ).join('<br>');
+        } else {
+            articlesCell.textContent = '-';
+        }
+        
+        const totalCell = row.insertCell(6);
+        totalCell.className = 'depense-value';
+        totalCell.textContent = formatCurrency(commande.total_depense || 0);
+    });
+    
+    table.appendChild(tbody);
+    commandesSection.appendChild(table);
+    container.appendChild(commandesSection);
+}
+
+// Créer la section des balais en stock
+function createBroonsStockSection(container, stats) {
+    if (!stats.balais_stock || stats.balais_stock.length === 0) {
+        return;
+    }
+    
+    const balaisSection = document.createElement('div');
+    balaisSection.className = 'vendeurs-section';
+    
+    const sectionTitle = document.createElement('div');
+    sectionTitle.className = 'section-title';
+    const titleSpan = document.createElement('span');
+    titleSpan.textContent = '🧹';
+    sectionTitle.appendChild(titleSpan);
+    sectionTitle.appendChild(document.createTextNode(' Balais en stock'));
+    balaisSection.appendChild(sectionTitle);
+    
+    // Ajouter un résumé des balais
+    const summaryDiv = document.createElement('div');
+    summaryDiv.style.cssText = 'display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;';
+    
+    const totalBalais = stats.balais_stock.length;
+    const balaisDisponibles = stats.balais_stock.filter(b => b.status === 'in stock').length;
+    const balaisEnLocation = stats.balais_stock.filter(b => b.status === 'in location').length;
+    const balaisVendus = stats.balais_stock.filter(b => b.status === 'sold').length;
+    const balaisEnArrivage = stats.balais_stock.filter(b => b.status === 'arriving').length;
+    const valeurStock = stats.balais_stock.reduce((sum, b) => sum + (b.purchase_price || 0), 0);
+    const valeurVentePotentielle = stats.balais_stock.reduce((sum, b) => sum + (b.sale_price || 0), 0);
+    
+    const summaryItems = [
+        { label: 'Total balais', value: formatNumber(totalBalais), color: '#2c3e50' },
+        { label: 'Disponibles', value: formatNumber(balaisDisponibles), color: '#27ae60' },
+        { label: 'En location', value: formatNumber(balaisEnLocation), color: '#f39c12' },
+        { label: 'Vendus', value: formatNumber(balaisVendus), color: '#9b59b6' },
+        { label: 'En arrivage', value: formatNumber(balaisEnArrivage), color: '#3498db' },
+        { label: 'Valeur stock (achat)', value: formatCurrency(valeurStock), color: '#e74c3c' },
+        { label: 'Valeur vente potentielle', value: formatCurrency(valeurVentePotentielle), color: '#27ae60' }
+    ];
+    
+    // Créer une grille pour les résumés
+    const summaryGrid = document.createElement('div');
+    summaryGrid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px;';
+    
+    summaryItems.forEach(item => {
+        const statDiv = document.createElement('div');
+        statDiv.style.cssText = 'background: #f8f9fa; padding: 15px; border-radius: 8px; text-align: center;';
+        statDiv.innerHTML = `
+            <div style="font-size: 12px; color: #7f8c8d;">${item.label}</div>
+            <div style="font-size: 20px; font-weight: bold; color: ${item.color};">${item.value}</div>
+        `;
+        summaryGrid.appendChild(statDiv);
+    });
+    
+    balaisSection.appendChild(summaryGrid);
+    
+    // Ajouter des filtres pour les balais
+    const filterDiv = document.createElement('div');
+    filterDiv.style.cssText = 'display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;';
+    filterDiv.innerHTML = `
+        <button class="stock-filter-btn active" data-filter="all">Tous</button>
+        <button class="stock-filter-btn" data-filter="in stock">Disponibles</button>
+        <button class="stock-filter-btn" data-filter="in location">En location</button>
+        <button class="stock-filter-btn" data-filter="sold">Vendus</button>
+        <button class="stock-filter-btn" data-filter="arriving">En arrivage</button>
+    `;
+    balaisSection.appendChild(filterDiv);
+    
+    // Créer le tableau des balais
+    const tableWrapper = document.createElement('div');
+    tableWrapper.style.overflowX = 'auto';
+    
+    const table = document.createElement('table');
+    table.className = 'vendeurs-table';
+    table.id = 'balais-stock-table';
+    
+    const thead = document.createElement('thead');
+    const headerRow = thead.insertRow();
+    const headers = ['ID', 'Nom', 'Fabricant', 'Prix vente', 'Prix location', "Prix d'achat", 'Utilisations', 'Usure', 'Statut'];
+    headers.forEach(headerText => {
+        const th = document.createElement('th');
+        th.textContent = headerText;
+        headerRow.appendChild(th);
+    });
+    table.appendChild(thead);
+    
+    const tbody = document.createElement('tbody');
+    tbody.id = 'balais-stock-tbody';
+    table.appendChild(tbody);
+    
+    tableWrapper.appendChild(table);
+    balaisSection.appendChild(tableWrapper);
+    container.appendChild(balaisSection);
+    
+    // Stocker les données pour le filtrage
+    window.balaisStockData = stats.balais_stock;
+    
+    // Fonction de filtrage
+    const filterButtons = filterDiv.querySelectorAll('.stock-filter-btn');
+    filterButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            filterButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const filter = btn.dataset.filter;
+            filterBalaisStockTable(filter);
+        });
+    });
+    
+    // Afficher tous les balais
+    filterBalaisStockTable('all');
+}
+
+function filterBalaisStockTable(filter) {
+    const tbody = document.getElementById('balais-stock-tbody');
+    if (!tbody || !window.balaisStockData) return;
+    
+    tbody.innerHTML = '';
+    
+    const filteredData = filter === 'all' 
+        ? window.balaisStockData 
+        : window.balaisStockData.filter(b => b.status === filter);
+    
+    const getStatusBadge = (status) => {
+        const badges = {
+            'in stock': { text: 'Disponible', class: 'badge-success' },
+            'in location': { text: 'En location', class: 'badge-warning' },
+            'sold': { text: 'Vendu', class: 'badge-secondary' },
+            'arriving': { text: 'En arrivage', class: 'badge-info' }
+        };
+        const badge = badges[status] || { text: status, class: 'badge-secondary' };
+        return `<span class="status-badge ${badge.class}">${badge.text}</span>`;
+    };
+    
+    const getWearClass = (wear) => {
+        if (wear >= 80) return 'text-danger';
+        if (wear >= 50) return 'text-warning';
+        if (wear >= 20) return 'text-info';
+        return 'text-success';
+    };
+    
+    filteredData.forEach(balai => {
+        const row = tbody.insertRow();
+        
+        row.insertCell(0).textContent = balai.id_balai || '-';
+        row.insertCell(1).textContent = balai.Libelle || '-';
+        row.insertCell(2).textContent = balai.fabricant_name || '-';
+        row.insertCell(3).className = 'ca-value';
+        row.insertCell(3).textContent = formatCurrency(balai.sale_price || 0);
+        row.insertCell(4).className = 'ca-value';
+        row.insertCell(4).textContent = formatCurrency(balai.location_price || 0);
+        row.insertCell(5).className = 'depense-value';
+        row.insertCell(5).textContent = formatCurrency(balai.purchase_price || 0);
+        row.insertCell(6).textContent = balai.uses_number || 0;
+        
+        const wear = balai.wear || 0;
+        const wearCell = row.insertCell(7);
+        wearCell.innerHTML = `<span class="${getWearClass(wear)}">${wear}%</span>`;
+        
+        row.insertCell(8).innerHTML = getStatusBadge(balai.status);
+    });
+}
+
+function renderStats(stats) {
+    const container = document.getElementById('stats-content');
+    if (!container) return;
+    
+    while (container.firstChild) {
+        container.removeChild(container.firstChild);
+    }
+    
+    createKpiCards(container, stats);
+    createLocationsSummary(container, stats);
+    createMainChartsSection(container);
+    createLocationsDetailsSection(container, stats);
+    
+    // Nouvelles sections
+    createVentesSection(container, stats);
+    createLocationsListSection(container, stats);
+    createCommandesFournisseurSection(container, stats);
+    createBroonsStockSection(container, stats);
+    
+    createVendeursSection(container, stats);
+    createFournisseursSection(container, stats);
+    createRepartitionSection(container);
+    createExtraChartsSection(container);
+
+    setTimeout(() => {
+        const monthlyData = stats.data_par_mois || [];
+        createVentesChart(monthlyData, stats);
+        createCumulativeNetChart(monthlyData);
+        createMarginChart(monthlyData);
+        createTopBalaisChart(stats.top_balais || []);
+        createRepartitionChart(stats.ventes_count || 0, stats.locations_count || 0);
+        createLocationStatusChart(stats.location_status || {});
+    }, 100);
 }
 
 // Charger les statistiques depuis l'API
@@ -1112,13 +1587,27 @@ async function loadStats() {
     showLoadingMessage(contentDiv, 'Chargement des statistiques...');
 
     try {
-        const response = await fetch(url);
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
+        // Charger les stats principales et les stats détaillées en parallèle
+        const [statsResponse, detailedResponse] = await Promise.all([
+            fetch(url),
+            fetch('/api/admin/stats/detailed' + (params.toString() ? '?' + params.toString() : ''))
+        ]);
+        
+        if (!statsResponse.ok) {
+            const errorData = await statsResponse.json().catch(() => ({}));
             throw new Error(errorData.detail || 'Erreur lors du chargement des statistiques');
         }
-        const data = await response.json();
-        renderStats(data.stats || data);
+        
+        const statsData = await statsResponse.json();
+        const detailedData = await detailedResponse.json().catch(() => ({ stats: {} }));
+        
+        // Fusionner les données
+        const mergedStats = {
+            ...(statsData.stats || statsData),
+            ...(detailedData.stats || {})
+        };
+        
+        renderStats(mergedStats);
     } catch (error) {
         console.error('Erreur:', error);
         showLoadingMessage(contentDiv, 'Erreur lors du chargement des statistiques', true, error.message);
