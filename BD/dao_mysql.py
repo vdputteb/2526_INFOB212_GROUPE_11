@@ -1,4 +1,4 @@
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 import pymysql
 from pymysql import Error
@@ -914,47 +914,11 @@ class DAOMySQL:
                 INSERT INTO DETAIL_LOCATION (id_location, id_balai)
                 VALUES (%s, %s)
             """, (commande_id, location.broomId))
-            
-            # Mettre à jour le status du balai
-            cursor.execute("UPDATE BALAI SET status = 'in location' WHERE id_balai = %s", (location.broomId,))
-            
+
             conn.commit()
             return True
         except Error as e:
             print(f"Erreur ajout réservation: {e}")
-            conn.rollback()
-            return False
-        finally:
-            cursor.close()
-            conn.close()
-
-
-    def delete_location(self, location_id: int) -> bool:
-        """Supprime une location"""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        try:
-            # Récupérer le balai associé
-            cursor.execute("""
-                SELECT b.id_balai
-                FROM LOCATION l
-                JOIN DETAIL_LOCATION dl ON l.id_commande = dl.id_location
-                JOIN BALAI b ON dl.id_balai = b.id_balai
-                WHERE l.id_commande = %s
-            """, (location_id,))
-            result = cursor.fetchone()
-            
-            if result:
-                cursor.execute("UPDATE BALAI SET status = 'in stock' WHERE id_balai = %s", (result[0],))
-            
-            cursor.execute("DELETE FROM DETAIL_LOCATION WHERE id_location = %s", (location_id,))
-            cursor.execute("DELETE FROM LOCATION WHERE id_commande = %s", (location_id,))
-            cursor.execute("DELETE FROM COMMANDE WHERE id_commande = %s", (location_id,))
-            
-            conn.commit()
-            return True
-        except Error as e:
-            print(f"Erreur suppression réservation: {e}")
             conn.rollback()
             return False
         finally:
@@ -1075,7 +1039,100 @@ class DAOMySQL:
             cursor.close()
             conn.close()
 
+
+    def delete_location(self, location_id: int) -> bool:
+        """Supprime une location"""
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        try:
+            # Récupérer le balai associé
+            cursor.execute("""
+                SELECT b.id_balai
+                FROM LOCATION l
+                JOIN DETAIL_LOCATION dl ON l.id_commande = dl.id_location
+                JOIN BALAI b ON dl.id_balai = b.id_balai
+                WHERE l.id_commande = %s
+            """, (location_id,))
+            result = cursor.fetchone()
+            
+            if result:
+                cursor.execute("UPDATE BALAI SET status = 'in stock' WHERE id_balai = %s", (result[0],))
+            
+            cursor.execute("DELETE FROM DETAIL_LOCATION WHERE id_location = %s", (location_id,))
+            cursor.execute("DELETE FROM LOCATION WHERE id_commande = %s", (location_id,))
+            cursor.execute("DELETE FROM COMMANDE WHERE id_commande = %s", (location_id,))
+            
+            conn.commit()
+            return True
+        except Error as e:
+            print(f"Erreur suppression réservation: {e}")
+            conn.rollback()
+            return False
+        finally:
+            cursor.close()
+            conn.close()
+
     # --- Méthodes pour les ventes (VENTES) ---
+
+    def get_vente_by_id(self, vente_id: int) -> Optional[Dict]:
+        """Récupère une vente par son ID"""
+        conn = self._get_connection()
+        cursor = conn.cursor(pymysql.cursors.DictCursor)
+        
+        cursor.execute("""
+            SELECT v.id_commande, v.sale_date, c.id_client
+            FROM VENTE v
+            JOIN COMMANDE c ON v.id_commande = c.id_commande
+            WHERE v.id_commande = %s
+        """, (vente_id,))
+
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        return result if result else None
+
+
+    def get_vente_detail(self, commande_id: int, client_id: int) -> Optional[Dict]:
+        """Récupère les détails d'une commande client"""
+        conn = self._get_connection()
+        cursor = conn.cursor(pymysql.cursors.DictCursor)
+        
+        cursor.execute("""
+            SELECT 
+                c.id_commande,
+                v.sale_date,
+                c.id_client,
+                cl.name as client_name,
+                cl.surname as client_surname,
+                (SELECT COALESCE(SUM(b2.sale_price), 0) 
+                FROM BALAI b2 
+                WHERE b2.id_vente = c.id_commande) as total_amount
+            FROM COMMANDE c
+            JOIN VENTE v ON c.id_commande = v.id_commande
+            JOIN CLIENT cl ON c.id_client = cl.id_client
+            WHERE c.id_commande = %s AND c.id_client = %s AND c.VENTE IS NOT NULL
+        """, (commande_id, client_id))
+        
+        result = cursor.fetchone()
+        
+        if result:
+            result = self.iso_format(result)
+            
+            # Récupérer les balais
+            cursor2 = conn.cursor(pymysql.cursors.DictCursor)
+            cursor2.execute("""
+                SELECT b.id_balai, b.Libelle as broom_name, b.sale_price
+                FROM BALAI b
+                WHERE b.id_vente = %s
+            """, (commande_id,))
+            
+            result['items'] = [dict(self.iso_format(item)) for item in cursor2.fetchall()]
+            cursor2.close()
+        
+        cursor.close()
+        conn.close()
+        return result if result else None
+
 
     def get_all_ventes(self) -> List[Dict]:
         """Récupère toutes les ventes avec calcul du montant total"""
@@ -1182,7 +1239,6 @@ class DAOMySQL:
 
             cursor.execute("SELECT money FROM CLIENT WHERE id_client = %s", (client_id,))
             client_money = cursor.fetchone()
-            print(client_money)
 
             remnant = client_money['money'] - sale_price
 
@@ -1198,6 +1254,10 @@ class DAOMySQL:
             """, (employee_id, client_id))
             commande_id = cursor.lastrowid
 
+            cursor.execute("""
+                UPDATE COMMANDE SET VENTE = %s WHERE id_commande = %s
+            """, (commande_id, commande_id))
+
             # Créer la VENTE
             cursor.execute("""
                 INSERT INTO VENTE (id_commande, sale_date)
@@ -1208,7 +1268,7 @@ class DAOMySQL:
                 # Mettre à jour le balai
                 cursor.execute("""
                     UPDATE BALAI 
-                    SET id_vente = %s, status = 'sold', uses_number = uses_number + 1
+                    SET id_vente = %s, status = 'sold'
                     WHERE id_balai = %s
                 """, (commande_id, broom_id))
             
@@ -1235,83 +1295,79 @@ class DAOMySQL:
         conn = self._get_connection()
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         try:
+
             # Récupérer la commande associée à la vente
             cursor.execute("""
                 SELECT id_commande, sale_date 
                 FROM VENTE 
-                WHERE id_vente = %s
+                WHERE id_commande = %s
             """, (vente_id,))
             vente = cursor.fetchone()
-            
+
             if not vente:
                 print(f"Vente {vente_id} non trouvée")
                 return False
-            
-            commande_id = vente['id_commande']
-            
+
             # Récupérer tous les balais associés à cette vente
             cursor.execute("""
                 SELECT id_balai, sale_price 
                 FROM BALAI 
                 WHERE id_vente = %s
-            """, (commande_id,))
+            """, (vente_id,))
             brooms = cursor.fetchall()
-            
+
             if not brooms:
                 print(f"Aucun balai trouvé pour la vente {vente_id}")
                 return False
-            
+
             # Calculer le montant total à rembourser
-            total_refund = sum(broom['sale_price'] for broom in brooms)
-            
+            total_refund = 0
+            for broom in brooms:
+                total_refund += broom['sale_price']
+
             # Récupérer l'id_client depuis la commande
             cursor.execute("""
                 SELECT id_client 
                 FROM COMMANDE 
                 WHERE id_commande = %s
-            """, (commande_id,))
+            """, (vente_id,))
             commande = cursor.fetchone()
-            
+
             if not commande:
-                print(f"Commande {commande_id} non trouvée")
+                print(f"Commande {vente_id} non trouvée")
                 return False
-            
+
             client_id = commande['id_client']
-            
-            # Récupérer l'argent actuel du client
-            cursor.execute("SELECT money FROM CLIENT WHERE id_client = %s", (client_id,))
-            client = cursor.fetchone()
-            
-            if not client:
-                print(f"Client {client_id} non trouvé")
-                return False
-            
+
             # Rembourser le client
-            new_money = client['money'] + total_refund
+            cursor.execute("SELECT money FROM CLIENT WHERE id_client = %s", (client_id,))
+            client_money = cursor.fetchone()
+
+            new_money = client_money['money'] + total_refund
+
             cursor.execute("""
                 UPDATE CLIENT
                 SET money = %s
                 WHERE id_client = %s
             """, (new_money, client_id))
-            
-            # Restaurer les balais (changer status et enlever l'association à la vente)
+
+            # Restaurer les balais
             for broom in brooms:
                 cursor.execute("""
                     UPDATE BALAI 
                     SET id_vente = NULL, status = 'in stock'
                     WHERE id_balai = %s
                 """, (broom['id_balai'],))
-            
+
             # Supprimer la vente
-            cursor.execute("DELETE FROM VENTE WHERE id_vente = %s", (vente_id,))
-            
-            # Supprimer la commande (optionnel, selon votre logique métier)
-            cursor.execute("DELETE FROM COMMANDE WHERE id_commande = %s", (commande_id,))
-            
+            cursor.execute("DELETE FROM VENTE WHERE id_commande = %s", (vente_id,))
+
+            # Supprimer la commande
+            cursor.execute("DELETE FROM COMMANDE WHERE id_commande = %s", (vente_id,))
+
             conn.commit()
-            print(f"Vente {vente_id} supprimée avec succès")
             return True
-            
+
         except Error as e:
             print(f"Erreur suppression vente: {e}")
             conn.rollback()

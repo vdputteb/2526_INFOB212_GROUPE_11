@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 
 from BD.dao_mysql import DAOMySQL
 from BD.models import (
-    Employee, Client, Reservation, SorcierDetails, MolduDetails, Address,
+    Employee, Client, Location, SorcierDetails, MolduDetails, Address,
     LoginRequest, SelectClientRequest, SelectVendeurRequest, CreateCommandeRequest
 )
 from utils.auth import require_role
@@ -640,7 +640,7 @@ async def validate_return_location(request: Request, return_data: dict):
 
 
 @app.post("/api/locations")
-async def create_reservation(request: Request, reservation: Reservation):
+async def create_reservation(request: Request, reservation: Location):
     """Crée une nouvelle location"""
     client_id = request.cookies.get("clientID")
     
@@ -702,6 +702,21 @@ async def get_ventes_vendeur(request: Request):
     return JSONResponse(dao.get_vendeur_ventes(int(vendeur_id)))
 
 
+@app.get("/api/ventes/client/detail/{commande_id}")
+async def get_vente_detail(request: Request, commande_id: int):
+    """Récupère les détails d'une commande client"""
+    client_id = request.cookies.get("clientID")
+    
+    if not client_id:
+        raise HTTPException(status_code=400, detail="No client selected")
+    
+    vente_detail = dao.get_vente_detail(commande_id, int(client_id))
+    if not vente_detail:
+        raise HTTPException(status_code=404, detail="Commande non trouvée")
+    
+    return JSONResponse(vente_detail)
+
+
 @app.post("/api/ventes")
 async def create_commande(request: Request, commande_data: CreateCommandeRequest):
     """Crée une nouvelle commande d'achat"""
@@ -723,6 +738,21 @@ async def create_commande(request: Request, commande_data: CreateCommandeRequest
         return JSONResponse({"message": "Order made"}, status_code=201)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"A problem occurred during the order processing: {str(e)}")
+
+
+@app.delete("/api/ventes/{vente_id}")
+async def delete_vente(request: Request, vente_id: int):
+    """Supprime une vente et rembourse le client"""
+    # Vérifier si la vente existe
+    vente = dao.get_vente_by_id(vente_id)
+    if not vente:
+        raise HTTPException(status_code=404, detail="Vente non trouvée")
+    
+    success = dao.delete_vente(vente_id)
+    if not success:
+        raise HTTPException(status_code=500, detail="Erreur lors de la suppression de la vente")
+    
+    return JSONResponse({"success": True, "message": "Vente supprimée avec succès et client remboursé"})
 
 
 # --- API Profil ---

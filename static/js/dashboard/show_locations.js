@@ -14,7 +14,46 @@ export async function showClientlocations() {
             return;
         }
         
-        const locations = await response.json();
+        let locations = await response.json();
+        
+        // Regrouper les locations par id_commande (une location peut avoir plusieurs balais)
+        const locationsMap = new Map();
+        
+        for (const location of locations) {
+            const commandeId = location.id_commande;
+            
+            if (!locationsMap.has(commandeId)) {
+                // Première occurrence de cette location
+                locationsMap.set(commandeId, {
+                    id_commande: location.id_commande,
+                    begin_date: location.begin_date,
+                    end_date: location.end_date,
+                    actual_end_date: location.actual_end_date,
+                    status: location.status,
+                    brooms: [],
+                    id_balais: [] // Pour suivre les IDs uniques
+                });
+            }
+            
+            // Ajouter le balai à la location (si pas déjà ajouté)
+            const locationGroup = locationsMap.get(commandeId);
+            if (!locationGroup.id_balais.includes(location.id_balai)) {
+                locationGroup.id_balais.push(location.id_balai);
+                locationGroup.brooms.push({
+                    id_balai: location.id_balai,
+                    broom_name: location.broom_name,
+                    Libelle: location.Libelle
+                });
+            }
+        }
+        
+        // Convertir la Map en tableau et trier par date de début (plus récente d'abord)
+        let groupedLocations = Array.from(locationsMap.values());
+        groupedLocations.sort((a, b) => {
+            const dateA = new Date(a.begin_date);
+            const dateB = new Date(b.begin_date);
+            return dateB - dateA;
+        });
         
         const modal = document.getElementById('locationsModal');
         const container = document.getElementById('locationsList');
@@ -30,7 +69,7 @@ export async function showClientlocations() {
             container.removeChild(container.firstChild);
         }
         
-        if (!locations || locations.length === 0) {
+        if (!groupedLocations || groupedLocations.length === 0) {
             const emptyMessage = document.createElement('p');
             emptyMessage.textContent = 'Aucune location pour ce client.';
             emptyMessage.style.textAlign = 'center';
@@ -38,12 +77,7 @@ export async function showClientlocations() {
             emptyMessage.style.color = '#6c757d';
             container.appendChild(emptyMessage);
         } else {
-            const catalogueRes = await fetch('/api/catalogue');
-            const catalogue = await catalogueRes.json();
-            
-            for (const res of locations) {
-                const broom = catalogue.find(b => b.id_balai === res.id_balai);
-                
+            for (const res of groupedLocations) {
                 const reservationCard = document.createElement('div');
                 reservationCard.className = 'reservation-card';
                 reservationCard.style.border = '1px solid #e0e0e0';
@@ -51,6 +85,7 @@ export async function showClientlocations() {
                 reservationCard.style.padding = '15px';
                 reservationCard.style.marginBottom = '10px';
                 reservationCard.style.backgroundColor = '#fff';
+                reservationCard.style.position = 'relative';
                 
                 const reservationHeader = document.createElement('div');
                 reservationHeader.className = 'reservation-header';
@@ -60,9 +95,14 @@ export async function showClientlocations() {
                 reservationHeader.style.flexWrap = 'wrap';
                 reservationHeader.style.gap = '10px';
                 
+                // Afficher le nombre de balais
                 const broomStrong = document.createElement('strong');
                 broomStrong.style.fontSize = '16px';
-                broomStrong.textContent = broom?.Libelle || broom?.libelle || `Balai #${res.id_balai}`;
+                if (res.brooms.length === 1) {
+                    broomStrong.textContent = res.brooms[0].broom_name || res.brooms[0].Libelle || `Balai #${res.brooms[0].id_balai}`;
+                } else {
+                    broomStrong.textContent = `${res.brooms.length} balais en location`;
+                }
                 
                 const reservationDates = document.createElement('span');
                 reservationDates.className = 'reservation-dates';
@@ -73,7 +113,6 @@ export async function showClientlocations() {
                 const endDate = formatDate(res.end_date);
                 const actualEndDate = res.actual_end_date ? formatDate(res.actual_end_date) : null;
                 
-                // Construction sans innerHTML
                 if (actualEndDate) {
                     const dateText = document.createTextNode(`${startDate} → ${endDate}`);
                     const returnSpan = document.createElement('span');
@@ -89,6 +128,30 @@ export async function showClientlocations() {
                 reservationHeader.appendChild(broomStrong);
                 reservationHeader.appendChild(reservationDates);
                 
+                // Afficher la liste des balais si plusieurs
+                if (res.brooms.length > 1) {
+                    const broomList = document.createElement('div');
+                    broomList.style.marginTop = '8px';
+                    broomList.style.fontSize = '12px';
+                    broomList.style.color = '#666';
+                    broomList.style.paddingLeft = '10px';
+                    
+                    const listTitle = document.createElement('div');
+                    listTitle.style.fontWeight = 'bold';
+                    listTitle.style.marginBottom = '4px';
+                    listTitle.textContent = 'Balais:';
+                    broomList.appendChild(listTitle);
+                    
+                    for (const broom of res.brooms) {
+                        const broomItem = document.createElement('div');
+                        broomItem.textContent = `• ${broom.broom_name || broom.Libelle || `Balai #${broom.id_balai}`}`;
+                        broomItem.style.marginBottom = '2px';
+                        broomList.appendChild(broomItem);
+                    }
+                    
+                    reservationCard.appendChild(broomList);
+                }
+                
                 // Durée
                 const durationInfo = document.createElement('div');
                 durationInfo.style.marginTop = '8px';
@@ -100,6 +163,9 @@ export async function showClientlocations() {
                 // Status
                 const statusContainer = document.createElement('div');
                 statusContainer.style.marginTop = '10px';
+                statusContainer.style.display = 'flex';
+                statusContainer.style.justifyContent = 'space-between';
+                statusContainer.style.alignItems = 'center';
                 
                 const locationstatus = document.createElement('span');
                 locationstatus.style.fontSize = '14px';
@@ -137,6 +203,34 @@ export async function showClientlocations() {
                 
                 statusContainer.appendChild(locationstatus);
                 
+                // Bouton de suppression (toujours visible)
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = '🗑️ Supprimer';
+                deleteBtn.style.backgroundColor = '#e74c3c';
+                deleteBtn.style.color = 'white';
+                deleteBtn.style.border = 'none';
+                deleteBtn.style.padding = '6px 12px';
+                deleteBtn.style.borderRadius = '5px';
+                deleteBtn.style.cursor = 'pointer';
+                deleteBtn.style.fontSize = '12px';
+                deleteBtn.style.transition = 'background-color 0.2s';
+                deleteBtn.title = 'Supprimer cette location';
+                
+                deleteBtn.onmouseover = () => deleteBtn.style.backgroundColor = '#c0392b';
+                deleteBtn.onmouseout = () => deleteBtn.style.backgroundColor = '#e74c3c';
+                
+                deleteBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const broomText = res.brooms.length === 1 ? 
+                        (res.brooms[0].broom_name || res.brooms[0].Libelle || `balai #${res.brooms[0].id_balai}`) : 
+                        `${res.brooms.length} balais`;
+                    if (confirm(`Êtes-vous sûr de vouloir supprimer cette location pour ${broomText} ?\nCette action est irréversible.`)) {
+                        await deleteLocation(res.id_commande, reservationCard);
+                    }
+                });
+                
+                statusContainer.appendChild(deleteBtn);
+                
                 reservationCard.appendChild(reservationHeader);
                 reservationCard.appendChild(durationInfo);
                 reservationCard.appendChild(statusContainer);
@@ -162,10 +256,11 @@ export async function showClientlocations() {
                     returnBtn.onmouseover = () => returnBtn.style.backgroundColor = '#2980b9';
                     returnBtn.onmouseout = () => returnBtn.style.backgroundColor = '#3498db';
                     
-                    // Stocker les données de la location
                     const bookingData = {
                         commandeId: res.id_commande,
-                        broomName: broom?.Libelle || broom?.libelle || `Balai #${res.id_balai}`,
+                        broomName: res.brooms.length === 1 ? 
+                            (res.brooms[0].broom_name || res.brooms[0].Libelle || `Balai #${res.brooms[0].id_balai}`) : 
+                            `${res.brooms.length} balais`,
                         beginDate: res.begin_date,
                         endDate: res.end_date
                     };
@@ -501,4 +596,30 @@ function calculateDuration(startDate, endDate) {
     const diffTime = Math.abs(end - start);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
+}
+
+// Fonction pour supprimer une location
+async function deleteLocation(locationId, cardElement) {
+    try {
+        const response = await fetch(`/api/locations/${locationId}`, {
+            credentials: "include",
+            method: 'DELETE'
+        });
+        
+        if (response.ok) {
+            alert('Location supprimée avec succès');
+            // Retirer la carte de l'affichage
+            if (cardElement && cardElement.parentNode) {
+                cardElement.remove();
+            }
+            // Recharger la liste si nécessaire
+            await showClientlocations();
+        } else {
+            const error = await response.json();
+            alert(`Erreur: ${error.detail || 'Impossible de supprimer la location'}`);
+        }
+    } catch (error) {
+        console.error('Erreur suppression location:', error);
+        alert('Erreur réseau lors de la suppression');
+    }
 }
