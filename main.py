@@ -937,9 +937,9 @@ async def get_admin_stats(request: Request, period: str = "all", start_date: str
             end_date = today.isoformat()
     
     if start_date and end_date:
-        stats = dao.get_admin_stats_by_period(start_date, end_date)
+        stats = dao.get_stats_by_period(start_date, end_date)
     else:
-        stats = dao.get_admin_stats()
+        stats = dao.get_stats()
     
     return JSONResponse({"success": True, "stats": stats})
 
@@ -970,12 +970,12 @@ async def get_detailed_stats(request: Request, period: str = "all", start_date: 
         result['ventes_detaillees'] = dao.get_ventes_by_date_range(start_date, end_date)
         result['locations_detaillees'] = dao.get_locations_by_date_range(start_date, end_date)
         result['commandes_fournisseur'] = dao.get_commandes_fournisseur_by_date_range(start_date, end_date)
-        result['statistiques'] = dao.get_admin_stats_by_period(start_date, end_date)
+        result['statistiques'] = dao.get_stats_by_period(start_date, end_date)
     else:
         result['ventes_detaillees'] = dao.get_all_ventes()
         result['locations_detaillees'] = dao.get_all_locations()
         result['commandes_fournisseur'] = dao.get_all_commandes_fournisseur()
-        result['statistiques'] = dao.get_admin_stats()
+        result['statistiques'] = dao.get_stats()
 
     # Récupérer tous les balais (pas besoin de filtre temporel)
     result['balais_stock'] = dao.get_all_brooms()

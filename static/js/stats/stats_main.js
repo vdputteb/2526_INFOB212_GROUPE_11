@@ -91,7 +91,8 @@ function createVendeursRows(tbody, vendeurs) {
         cellCa.textContent = formatCurrency(caTotal);
         
         const cellMarge = row.insertCell(5);
-        const margePercent = vendeur.marge_percent || 0;
+        // Calcul de la marge si disponible
+        const margePercent = caTotal > 0 && vendeur.depenses ? ((caTotal - vendeur.depenses) / caTotal) * 100 : 0;
         cellMarge.innerHTML = `<span class="${margePercent >= 30 ? 'text-success' : margePercent >= 15 ? 'text-warning' : 'text-danger'}">${margePercent.toFixed(1)}%</span>`;
         
         const cellPerf = row.insertCell(6);
@@ -209,11 +210,13 @@ function createKpiCards(container, stats) {
     const kpiGrid = document.createElement('div');
     kpiGrid.className = 'kpi-grid';
     
-    const totalCaVentes = stats.total_ca_ventes || 0;
-    const totalCaLocations = stats.total_ca_locations || 0;
-    const totalCa = totalCaVentes + totalCaLocations;
-    const totalDepenses = stats.total_depenses || 0;
-    const netCa = totalCa - totalDepenses;
+    // Utiliser les données de statistiques
+    const statistiques = stats.statistiques || stats;
+    const totalCaVentes = statistiques.total_ca_ventes || 0;
+    const totalCaLocations = statistiques.total_ca_locations || 0;
+    const totalCa = statistiques.total_ca || (totalCaVentes + totalCaLocations);
+    const totalDepenses = statistiques.total_depenses || 0;
+    const netCa = statistiques.net_ca || (totalCa - totalDepenses);
     const margeBrute = totalCa > 0 ? (netCa / totalCa) * 100 : 0;
     
     const kpis = [
@@ -223,7 +226,7 @@ function createKpiCards(container, stats) {
         { icon: '📉', title: 'DÉPENSES', value: formatCurrency(totalDepenses), sub: 'Achats fournisseurs', color: '#e74c3c' },
         { icon: '📈', title: 'CA NET', value: formatCurrency(netCa), sub: 'CA Total - Dépenses', color: netCa >= 0 ? '#27ae60' : '#e74c3c' },
         { icon: '🎯', title: 'MARGE BRUTE', value: `${margeBrute.toFixed(1)}%`, sub: 'Marge sur CA total', color: margeBrute >= 30 ? '#27ae60' : margeBrute >= 15 ? '#f39c12' : '#e74c3c' },
-        { icon: '👥', title: 'CLIENTS UNIQUES', value: formatNumber(stats.clients_count || 0), sub: 'Ayant passé commande', color: '#f39c12' },
+        { icon: '👥', title: 'CLIENTS UNIQUES', value: formatNumber(statistiques.clients_count || 0), sub: 'Ayant passé commande', color: '#f39c12' },
     ];
     
     kpis.forEach(kpi => {
@@ -236,7 +239,8 @@ function createKpiCards(container, stats) {
 
 // Créer une section de résumé des locations
 function createLocationsSummary(container, stats) {
-    if (!stats.locations_count || stats.locations_count === 0) {
+    const locationsCount = stats.locations_count || stats.statistiques?.locations_count || 0;
+    if (locationsCount === 0) {
         return;
     }
     
@@ -258,10 +262,9 @@ function createLocationsSummary(container, stats) {
     grid.style.gap = '1rem';
     grid.style.marginTop = '1rem';
     
-    const caLocations = stats.total_ca_locations || 0;
-    const nbLocations = stats.locations_count || 0;
+    const caLocations = stats.total_ca_locations || stats.statistiques?.total_ca_locations || 0;
+    const nbLocations = stats.locations_count || stats.statistiques?.locations_count || 0;
     const avgLocationValue = nbLocations > 0 ? caLocations / nbLocations : 0;
-    const dureeMoyenne = stats.duree_location_moyenne || 0;
     
     const createStatBlock = (label, value, color) => {
         const div = document.createElement('div');
@@ -282,10 +285,6 @@ function createLocationsSummary(container, stats) {
     grid.appendChild(createStatBlock('Nombre total', formatNumber(nbLocations), '#3498db'));
     grid.appendChild(createStatBlock('Chiffre d\'affaires', formatCurrency(caLocations), '#3498db'));
     grid.appendChild(createStatBlock('Prix moyen / location', formatCurrency(avgLocationValue), '#3498db'));
-    
-    if (dureeMoyenne > 0) {
-        grid.appendChild(createStatBlock('Durée moyenne', `${dureeMoyenne.toFixed(1)} jours`, '#3498db'));
-    }
     
     summaryCard.appendChild(grid);
     
@@ -389,7 +388,8 @@ function createRepartitionSection(container) {
 
 // Créer la section des fournisseurs
 function createFournisseursSection(container, stats) {
-    if (!stats.depenses_par_fournisseur || stats.depenses_par_fournisseur.length === 0) {
+    const depensesParFournisseur = stats.depenses_par_fournisseur || stats.statistiques?.depenses_par_fournisseur || [];
+    if (depensesParFournisseur.length === 0) {
         return;
     }
     
@@ -418,7 +418,7 @@ function createFournisseursSection(container, stats) {
     table.appendChild(thead);
     
     const tbody = document.createElement('tbody');
-    createFournisseursRows(tbody, stats.depenses_par_fournisseur);
+    createFournisseursRows(tbody, depensesParFournisseur);
     table.appendChild(tbody);
     
     fournisseursSection.appendChild(table);
@@ -427,7 +427,8 @@ function createFournisseursSection(container, stats) {
 
 // Créer la section des vendeurs
 function createVendeursSection(container, stats) {
-    if (!stats.stats_par_vendeur || stats.stats_par_vendeur.length === 0) {
+    const statsParVendeur = stats.stats_par_vendeur || stats.statistiques?.stats_par_vendeur || [];
+    if (statsParVendeur.length === 0) {
         return;
     }
     
@@ -456,7 +457,7 @@ function createVendeursSection(container, stats) {
     table.appendChild(thead);
     
     const tbody = document.createElement('tbody');
-    createVendeursRows(tbody, stats.stats_par_vendeur);
+    createVendeursRows(tbody, statsParVendeur);
     table.appendChild(tbody);
     
     vendeursSection.appendChild(table);
@@ -817,7 +818,7 @@ function createTopBalaisChart(data) {
     });
 }
 
-// Créer le graphique de répartition
+// Créer le graphique de répartition ventes/locations
 function createRepartitionChart(ventesCount, locationsCount) {
     const canvas = document.getElementById('repartition-chart');
     const ctx = canvas?.getContext('2d');
@@ -913,7 +914,8 @@ function createLocationStatusChart(statusData) {
 
 // Créer la section des détails des locations
 function createLocationsDetailsSection(container, stats) {
-    if (!stats.locations_count || stats.locations_count === 0) {
+    const locationsCount = stats.locations_count || stats.statistiques?.locations_count || 0;
+    if (locationsCount === 0) {
         return;
     }
     
@@ -961,9 +963,10 @@ function createLocationsDetailsSection(container, stats) {
         return row;
     };
     
-    statusContainer.appendChild(createStatusRow('🔄 En cours:', stats.location_status?.['in Progress'] || 0, '#f39c12'));
-    statusContainer.appendChild(createStatusRow('⏳ En attente:', stats.location_status?.Pending || 0, '#e74c3c'));
-    statusContainer.appendChild(createStatusRow('✅ Terminées:', stats.location_status?.Finished || 0, '#27ae60'));
+    const locationStatus = stats.location_status || stats.statistiques?.location_status || {};
+    statusContainer.appendChild(createStatusRow('🔄 En cours:', locationStatus['in Progress'] || 0, '#f39c12'));
+    statusContainer.appendChild(createStatusRow('⏳ En attente:', locationStatus['Pending'] || 0, '#e74c3c'));
+    statusContainer.appendChild(createStatusRow('✅ Terminées:', locationStatus['Finished'] || 0, '#27ae60'));
     
     const totalRow = document.createElement('div');
     totalRow.style.display = 'flex';
@@ -978,7 +981,7 @@ function createLocationsDetailsSection(container, stats) {
     totalLabel.textContent = '📊 Total:';
     const totalValue = document.createElement('strong');
     totalValue.style.fontSize = '1.1rem';
-    totalValue.textContent = stats.locations_count || 0;
+    totalValue.textContent = locationsCount;
     
     totalRow.appendChild(totalLabel);
     totalRow.appendChild(totalValue);
@@ -987,8 +990,9 @@ function createLocationsDetailsSection(container, stats) {
     statusCard.appendChild(statusContainer);
     statsGrid.appendChild(statusCard);
     
-    if (stats.stats_par_vendeur && stats.stats_par_vendeur.length > 0) {
-        const vendeursWithLocations = stats.stats_par_vendeur.filter(v => v.nb_locations > 0);
+    const statsParVendeur = stats.stats_par_vendeur || stats.statistiques?.stats_par_vendeur || [];
+    if (statsParVendeur.length > 0) {
+        const vendeursWithLocations = statsParVendeur.filter(v => v.nb_locations > 0);
         if (vendeursWithLocations.length > 0) {
             const topVendeurCard = document.createElement('div');
             topVendeurCard.className = 'kpi-card';
@@ -1058,7 +1062,8 @@ function showLoadingMessage(container, message, isError = false, errorDetail = '
 
 // Créer la section des ventes
 function createVentesSection(container, stats) {
-    if (!stats.ventes_detaillees || stats.ventes_detaillees.length === 0) {
+    const ventesDetaillees = stats.ventes_detaillees || [];
+    if (ventesDetaillees.length === 0) {
         return;
     }
     
@@ -1077,8 +1082,8 @@ function createVentesSection(container, stats) {
     const summaryDiv = document.createElement('div');
     summaryDiv.style.cssText = 'display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;';
     
-    const totalVentes = stats.ventes_detaillees.length;
-    const totalCaVentes = stats.ventes_detaillees.reduce((sum, v) => sum + (v.total_amount || 0), 0);
+    const totalVentes = ventesDetaillees.length;
+    const totalCaVentes = ventesDetaillees.reduce((sum, v) => sum + (v.total_amount || 0), 0);
     const moyenneVente = totalVentes > 0 ? totalCaVentes / totalVentes : 0;
     
     const summaryItems = [
@@ -1115,7 +1120,7 @@ function createVentesSection(container, stats) {
     
     const tbody = document.createElement('tbody');
     
-    stats.ventes_detaillees.forEach(vente => {
+    ventesDetaillees.forEach(vente => {
         const row = tbody.insertRow();
         
         row.insertCell(0).textContent = vente.id_commande || '-';
@@ -1143,7 +1148,8 @@ function createVentesSection(container, stats) {
 
 // Créer la section des locations
 function createLocationsListSection(container, stats) {
-    if (!stats.locations_detaillees || stats.locations_detaillees.length === 0) {
+    const locationsDetaillees = stats.locations_detaillees || [];
+    if (locationsDetaillees.length === 0) {
         return;
     }
     
@@ -1162,11 +1168,11 @@ function createLocationsListSection(container, stats) {
     const summaryDiv = document.createElement('div');
     summaryDiv.style.cssText = 'display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;';
     
-    const totalLocations = stats.locations_detaillees.length;
-    const locationsTerminees = stats.locations_detaillees.filter(l => l.status === 'Finished').length;
-    const locationsEnCours = stats.locations_detaillees.filter(l => l.status === 'in Progress').length;
-    const locationsEnAttente = stats.locations_detaillees.filter(l => l.status === 'Pending').length;
-    const caLocationsTotal = stats.locations_detaillees.reduce((sum, l) => sum + (l.total_amount || 0), 0);
+    const totalLocations = locationsDetaillees.length;
+    const locationsTerminees = locationsDetaillees.filter(l => l.status === 'Finished').length;
+    const locationsEnCours = locationsDetaillees.filter(l => l.status === 'in Progress').length;
+    const locationsEnAttente = locationsDetaillees.filter(l => l.status === 'Pending').length;
+    const caLocationsTotal = locationsDetaillees.reduce((sum, l) => sum + (l.total_amount || 0), 0);
     
     const summaryItems = [
         { label: 'Total locations', value: formatNumber(totalLocations), color: '#3498db' },
@@ -1214,7 +1220,7 @@ function createLocationsListSection(container, stats) {
         return `<span class="status-badge ${badge.class}">${badge.text}</span>`;
     };
     
-    stats.locations_detaillees.forEach(location => {
+    locationsDetaillees.forEach(location => {
         const row = tbody.insertRow();
         
         row.insertCell(0).textContent = location.id_commande || '-';
@@ -1259,7 +1265,8 @@ function createLocationsListSection(container, stats) {
 
 // Créer la section des commandes fournisseurs
 function createCommandesFournisseurSection(container, stats) {
-    if (!stats.commandes_fournisseur || stats.commandes_fournisseur.length === 0) {
+    const commandesFournisseur = stats.commandes_fournisseur || [];
+    if (commandesFournisseur.length === 0) {
         return;
     }
     
@@ -1278,10 +1285,10 @@ function createCommandesFournisseurSection(container, stats) {
     const summaryDiv = document.createElement('div');
     summaryDiv.style.cssText = 'display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;';
     
-    const totalCommandes = stats.commandes_fournisseur.length;
-    const totalDepensesCommandes = stats.commandes_fournisseur.reduce((sum, cmd) => sum + (cmd.total_depense || 0), 0);
-    const totalBalaisCommandes = stats.commandes_fournisseur.reduce((sum, cmd) => sum + (cmd.total_articles || 0), 0);
-    const commandesEnAttente = stats.commandes_fournisseur.filter(cmd => cmd.status === 'Pending Approuval' || cmd.status === 'Pending').length;
+    const totalCommandes = commandesFournisseur.length;
+    const totalDepensesCommandes = commandesFournisseur.reduce((sum, cmd) => sum + (cmd.total_depense || 0), 0);
+    const totalBalaisCommandes = commandesFournisseur.reduce((sum, cmd) => sum + (cmd.total_articles || 0), 0);
+    const commandesEnAttente = commandesFournisseur.filter(cmd => cmd.status === 'Pending Approuval' || cmd.status === 'Pending').length;
     
     const summaryItems = [
         { label: 'Total commandes', value: formatNumber(totalCommandes), color: '#9b59b6' },
@@ -1332,7 +1339,7 @@ function createCommandesFournisseurSection(container, stats) {
         return `<span class="status-badge ${badge.class}">${badge.text}</span>`;
     };
     
-    stats.commandes_fournisseur.forEach(commande => {
+    commandesFournisseur.forEach(commande => {
         const row = tbody.insertRow();
         
         row.insertCell(0).textContent = commande.id_commande || '-';
@@ -1366,7 +1373,8 @@ function createCommandesFournisseurSection(container, stats) {
 
 // Créer la section des balais en stock
 function createBroonsStockSection(container, stats) {
-    if (!stats.balais_stock || stats.balais_stock.length === 0) {
+    const balaisStock = stats.balais_stock || [];
+    if (balaisStock.length === 0) {
         return;
     }
     
@@ -1385,13 +1393,13 @@ function createBroonsStockSection(container, stats) {
     const summaryDiv = document.createElement('div');
     summaryDiv.style.cssText = 'display: flex; gap: 20px; margin-bottom: 20px; flex-wrap: wrap;';
     
-    const totalBalais = stats.balais_stock.length;
-    const balaisDisponibles = stats.balais_stock.filter(b => b.status === 'in stock').length;
-    const balaisEnLocation = stats.balais_stock.filter(b => b.status === 'in location').length;
-    const balaisVendus = stats.balais_stock.filter(b => b.status === 'sold').length;
-    const balaisEnArrivage = stats.balais_stock.filter(b => b.status === 'arriving').length;
-    const valeurStock = stats.balais_stock.reduce((sum, b) => sum + (b.purchase_price || 0), 0);
-    const valeurVentePotentielle = stats.balais_stock.reduce((sum, b) => sum + (b.sale_price || 0), 0);
+    const totalBalais = balaisStock.length;
+    const balaisDisponibles = balaisStock.filter(b => b.status === 'in stock').length;
+    const balaisEnLocation = balaisStock.filter(b => b.status === 'in location').length;
+    const balaisVendus = balaisStock.filter(b => b.status === 'sold').length;
+    const balaisEnArrivage = balaisStock.filter(b => b.status === 'arriving').length;
+    const valeurStock = balaisStock.reduce((sum, b) => sum + (b.purchase_price || 0), 0);
+    const valeurVentePotentielle = balaisStock.reduce((sum, b) => sum + (b.sale_price || 0), 0);
     
     const summaryItems = [
         { label: 'Total balais', value: formatNumber(totalBalais), color: '#2c3e50' },
@@ -1458,7 +1466,7 @@ function createBroonsStockSection(container, stats) {
     container.appendChild(balaisSection);
     
     // Stocker les données pour le filtrage
-    window.balaisStockData = stats.balais_stock;
+    window.balaisStockData = balaisStock;
     
     // Fonction de filtrage
     const filterButtons = filterDiv.querySelectorAll('.stock-filter-btn');
@@ -1550,13 +1558,18 @@ function renderStats(stats) {
     createExtraChartsSection(container);
 
     setTimeout(() => {
-        const monthlyData = stats.data_par_mois || [];
+        const monthlyData = stats.data_par_mois || stats.statistiques?.data_par_mois || [];
         createVentesChart(monthlyData, stats);
         createCumulativeNetChart(monthlyData);
         createMarginChart(monthlyData);
-        createTopBalaisChart(stats.top_balais || []);
-        createRepartitionChart(stats.ventes_count || 0, stats.locations_count || 0);
-        createLocationStatusChart(stats.location_status || {});
+        createTopBalaisChart(stats.top_balais || stats.statistiques?.top_balais || []);
+        
+        const ventesCount = stats.ventes_count || stats.statistiques?.ventes_count || 0;
+        const locationsCount = stats.locations_count || stats.statistiques?.locations_count || 0;
+        createRepartitionChart(ventesCount, locationsCount);
+        
+        const locationStatus = stats.location_status || stats.statistiques?.location_status || {};
+        createLocationStatusChart(locationStatus);
     }, 100);
 }
 
@@ -1587,27 +1600,15 @@ async function loadStats() {
     showLoadingMessage(contentDiv, 'Chargement des statistiques...');
 
     try {
-        // Charger les stats principales et les stats détaillées en parallèle
-        const [statsResponse, detailedResponse] = await Promise.all([
-            fetch(url),
-            fetch('/api/admin/stats/detailed' + (params.toString() ? '?' + params.toString() : ''))
-        ]);
+        // Charger les stats principales
+        const response = await fetch(url);
+        const data = await response.json();
         
-        if (!statsResponse.ok) {
-            const errorData = await statsResponse.json().catch(() => ({}));
-            throw new Error(errorData.detail || 'Erreur lors du chargement des statistiques');
+        if (data.success && data.stats) {
+            renderStats(data.stats);
+        } else {
+            showLoadingMessage(contentDiv, 'Erreur lors du chargement des statistiques', true, 'Données invalides');
         }
-        
-        const statsData = await statsResponse.json();
-        const detailedData = await detailedResponse.json().catch(() => ({ stats: {} }));
-        
-        // Fusionner les données
-        const mergedStats = {
-            ...(statsData.stats || statsData),
-            ...(detailedData.stats || {})
-        };
-        
-        renderStats(mergedStats);
     } catch (error) {
         console.error('Erreur:', error);
         showLoadingMessage(contentDiv, 'Erreur lors du chargement des statistiques', true, error.message);

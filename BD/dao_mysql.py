@@ -1930,7 +1930,7 @@ class DAOMySQL:
         return results
 
 
-    def get_admin_stats(self) -> Dict:
+    def get_stats(self) -> Dict:
         """Récupère les statistiques globales pour les administrateurs (depuis la première date disponible)"""
         conn = self._get_connection()
         cursor = conn.cursor(pymysql.cursors.DictCursor)
@@ -1955,85 +1955,63 @@ class DAOMySQL:
         # Obtenir la date actuelle
         current_date = datetime.now().date()
 
-        # Appeler get_admin_stats_by_period avec la période complète
-        return self.get_admin_stats_by_period(str(first_date), str(current_date))
+        # Appeler get_stats_by_period avec la période complète
+        return self.get_stats_by_period(str(first_date), str(current_date))
 
 
-    def get_admin_stats_by_period(self, start_date: str, end_date: str) -> Dict:
+    def get_stats_by_period(self, start_date: str, end_date: str) -> Dict:
         """Récupère les statistiques globales sur une période donnée"""
         conn = self._get_connection()
         cursor = conn.cursor(pymysql.cursors.DictCursor)
-        
+
         stats = {}
-        
-        # CA des ventes sur la période
+
+        # CA des ventes
         cursor.execute("""
-            SELECT COALESCE(SUM(b.sale_price), 0) as total_ca_ventes
-            FROM BALAI b
-            JOIN VENTE v ON b.id_vente = v.id_commande
-            WHERE v.sale_date BETWEEN %s AND %s
-        """, (start_date, end_date))
+            SELECT COALESCE(SUM(total_ca_ventes), 0) as total_ca_ventes
+            FROM ca_ventes_detail
+            WHERE date BETWEEN %s AND %s
+        """, (start_date, end_date,),)
         stats['total_ca_ventes'] = self.iso_format(cursor.fetchone())['total_ca_ventes']
-        
-        # CA des locations sur la période
+
+        # CA des locations
         cursor.execute("""
-            SELECT COALESCE(SUM(
-                b.location_price * 
-                CASE 
-                    WHEN l.actual_end_date IS NOT NULL 
-                    THEN DATEDIFF(l.actual_end_date, l.begin_date)
-                    ELSE DATEDIFF(l.end_date, l.begin_date)
-                END
-            ), 0) as total_ca_locations
-            FROM LOCATION l
-            JOIN DETAIL_LOCATION dl ON dl.id_location = l.id_commande
-            JOIN BALAI b ON b.id_balai = dl.id_balai
-            WHERE l.begin_date BETWEEN %s AND %s
-            AND l.status IN ('in Progress', 'Finished')
-        """, (start_date, end_date))
+            SELECT COALESCE(SUM(ca_location), 0) as total_ca_locations
+            FROM ca_locations_detail
+            WHERE date BETWEEN %s AND %s
+        """, (start_date, end_date,),)
         stats['total_ca_locations'] = self.iso_format(cursor.fetchone())['total_ca_locations']
-        
+
         # CA Total
         stats['total_ca'] = stats['total_ca_ventes'] + stats['total_ca_locations']
-        
-        # Dépenses totales sur la période (commandes fournisseurs)
+
+        # Dépenses
         cursor.execute("""
-            SELECT COALESCE(SUM(b.purchase_price), 0) as total_depenses
-            FROM COMMANDE_FOURNISSEUR cf
-            JOIN BALAI b ON b.id_commande_fournisseur = cf.id_commande
-            WHERE cf.status NOT LIKE '%%Pending%%' AND cf.command_date BETWEEN %s AND %s
-        """, (start_date, end_date))
+            SELECT COALESCE(SUM(total_depenses), 0) as total_depenses
+            FROM depenses_fournisseurs
+            WHERE date BETWEEN %s AND %s
+        """, (start_date, end_date,),)
         stats['total_depenses'] = self.iso_format(cursor.fetchone())['total_depenses']
-        
+
         # CA Net
         stats['net_ca'] = stats['total_ca'] - stats['total_depenses']
-        
-        # Nombre de ventes sur la période
+
+        # Nombre de ventes
         cursor.execute("""
-            SELECT COUNT(*) as count
-            FROM VENTE v
-            WHERE v.sale_date BETWEEN %s AND %s
-        """, (start_date, end_date))
+            SELECT COUNT(DISTINCT id_commande) as count
+            FROM VENTE
+            WHERE sale_date BETWEEN %s AND %s
+        """, (start_date, end_date,),)
         stats['ventes_count'] = self.iso_format(cursor.fetchone())['count']
-        
-        # Nombre de locations créées sur la période
+
+        # Nombre de locations
         cursor.execute("""
             SELECT COUNT(*) as count
             FROM LOCATION l
             WHERE l.begin_date BETWEEN %s AND %s
         """, (start_date, end_date))
         stats['locations_count'] = self.iso_format(cursor.fetchone())['count']
-        
-        # Nombre de clients uniques sur la période
-        cursor.execute("""
-            SELECT COUNT(DISTINCT c.id_client) as count
-            FROM COMMANDE c
-            LEFT JOIN VENTE v ON c.VENTE = v.id_commande
-            LEFT JOIN LOCATION l ON c.LOCATION = l.id_commande
-            WHERE (v.sale_date BETWEEN %s AND %s) OR (l.begin_date BETWEEN %s AND %s)
-        """, (start_date, end_date, start_date, end_date))
-        stats['clients_count'] = self.iso_format(cursor.fetchone())['count']
-        
+
         # Statuts des locations sur la période
         cursor.execute("""
             SELECT status, COUNT(*) as count 
@@ -2044,135 +2022,84 @@ class DAOMySQL:
         stats['location_status'] = {}
         for row in cursor.fetchall():
             stats['location_status'][row['status']] = row['count']
-        
-        # Ventes, locations et dépenses par mois sur la période
+
+        # Données par mois
         cursor.execute("""
-            WITH months AS (
-                SELECT DISTINCT DATE_FORMAT(sale_date, '%%Y-%%m') as month
-                FROM VENTE
-                WHERE sale_date BETWEEN %s AND %s
-                UNION
-                SELECT DISTINCT DATE_FORMAT(command_date, '%%Y-%%m') as month
-                FROM COMMANDE_FOURNISSEUR
-                WHERE command_date BETWEEN %s AND %s AND status NOT LIKE '%%Pending%%'
-                UNION
-                SELECT DISTINCT DATE_FORMAT(end_date, '%%Y-%%m') as month
-                FROM LOCATION
-                WHERE begin_date BETWEEN %s AND %s
-            )
             SELECT 
-                m.month,
-                COALESCE((
-                    SELECT SUM(b.sale_price)
-                    FROM VENTE v
-                    JOIN BALAI b ON b.id_vente = v.id_commande
-                    WHERE DATE_FORMAT(v.sale_date, '%%Y-%%m') = m.month
-                ), 0) as ca_ventes,
-                COALESCE((
-                    SELECT SUM(
-                        b.location_price * 
-                        CASE 
-                            WHEN l.actual_end_date IS NOT NULL 
-                            THEN DATEDIFF(l.actual_end_date, l.begin_date)
-                            ELSE DATEDIFF(l.end_date, l.begin_date)
-                        END
-                    )
-                    FROM LOCATION l
-                    JOIN DETAIL_LOCATION dl ON dl.id_location = l.id_commande
-                    JOIN BALAI b ON b.id_balai = dl.id_balai
-                    WHERE l.status IN ('in Progress', 'Finished') AND DATE_FORMAT(l.end_date, '%%Y-%%m') = m.month
-                ), 0) as ca_locations,
-                COALESCE((
-                    SELECT SUM(b.purchase_price)
-                    FROM COMMANDE_FOURNISSEUR cf
-                    JOIN BALAI b ON b.id_commande_fournisseur = cf.id_commande
-                    WHERE cf.status NOT LIKE '%%Pending%%' AND DATE_FORMAT(cf.command_date, '%%Y-%%m') = m.month
-                ), 0) as depenses
-            FROM months m
-            ORDER BY m.month ASC
-        """, (start_date, end_date, start_date, end_date, start_date, end_date))
-        
-        vente_par_mois = []
-        for row in cursor.fetchall():
-            item = dict(row)
-            item['ca_total'] = item['ca_ventes'] + item['ca_locations']
-            item['net'] = item['ca_total'] - item['depenses']
-            vente_par_mois.append(self.iso_format(item))
-        stats['data_par_mois'] = vente_par_mois
-        
-        # Top balais sur la période
+                month,
+                ca_ventes,
+                ca_locations,
+                (ca_ventes + ca_locations) as ca_total,
+                depenses,
+                ((ca_ventes + ca_locations) - depenses) as net
+            FROM stats_mensuelles
+            WHERE month BETWEEN DATE_FORMAT(%s, '%%Y-%%m') AND DATE_FORMAT(%s, '%%Y-%%m')
+            ORDER BY month ASC
+        """, (start_date, end_date,),)
+        stats['data_par_mois'] = [dict(self.iso_format(row)) for row in cursor.fetchall()]
+
+        # Top balais
         cursor.execute("""
-            SELECT b.Libelle as broom_name, COUNT(*) as quantity
-            FROM VENTE v
-            JOIN COMMANDE c ON v.id_commande = c.id_commande
-            JOIN BALAI b ON b.id_vente = c.id_commande
-            WHERE v.sale_date BETWEEN %s AND %s
-            GROUP BY b.id_balai, b.Libelle
+            SELECT broom_name, SUM(quantity) as quantity
+            FROM top_balais_vendus
+            WHERE sale_date BETWEEN %s AND %s
+            GROUP BY broom_name
             ORDER BY quantity DESC
             LIMIT 5
         """, (start_date, end_date))
         stats['top_balais'] = [dict(self.iso_format(row)) for row in cursor.fetchall()]
-        
-        # Dépenses par fournisseur sur la période
+
+        # Dépenses par fournisseur
         cursor.execute("""
-            SELECT 
-                f.name as fournisseur_name,
-                COALESCE(SUM(b.purchase_price), 0) as total_depenses
-            FROM FABRICANT f
-            JOIN BALAI b ON b.id_fabricant = f.id_fabricant
-            JOIN COMMANDE_FOURNISSEUR cf ON b.id_commande_fournisseur = cf.id_commande
-            WHERE cf.status NOT LIKE '%%Pending%%' AND cf.command_date BETWEEN %s AND %s
-            GROUP BY f.id_fabricant, f.name
+            SELECT fournisseur_name, SUM(total_depenses) as total_depenses
+            FROM depenses_par_fournisseur
+            WHERE command_date BETWEEN %s AND %s
+            GROUP BY fournisseur_name, id_fabricant
             ORDER BY total_depenses DESC
         """, (start_date, end_date))
         stats['depenses_par_fournisseur'] = [dict(self.iso_format(row)) for row in cursor.fetchall()]
-        
-        # Stats par vendeur sur la période
+
+        # Stats par vendeur
         cursor.execute("""
             SELECT 
-                e.id_employee,
-                e.name,
-                e.surname,
-                CASE WHEN e.id_patron IS NULL THEN 1 ELSE 0 END as is_patron,
-                COUNT(DISTINCT CASE WHEN v.sale_date BETWEEN %s AND %s THEN v.id_commande END) as nb_ventes,
-                COALESCE(SUM(CASE WHEN v.sale_date BETWEEN %s AND %s THEN b_vente.sale_price END), 0) as ca_ventes,
-                COUNT(DISTINCT CASE WHEN l.begin_date BETWEEN %s AND %s THEN l.id_commande END) as nb_locations
-            FROM EMPLOYEE e
-            LEFT JOIN COMMANDE c ON e.id_employee = c.id_employee
-            LEFT JOIN VENTE v ON c.id_commande = v.id_commande
-            LEFT JOIN BALAI b_vente ON b_vente.id_vente = v.id_commande
-            LEFT JOIN LOCATION l ON c.id_commande = l.id_commande
-            GROUP BY e.id_employee, e.name, e.surname, e.id_patron
+                id_employee,
+                name,
+                surname,
+                is_patron,
+                COUNT(DISTINCT CASE WHEN sale_date BETWEEN %s AND %s THEN vente_id END) as nb_ventes,
+                COALESCE(SUM(CASE WHEN sale_date BETWEEN %s AND %s THEN sale_price END), 0) as ca_ventes,
+                COUNT(DISTINCT CASE WHEN begin_date BETWEEN %s AND %s THEN location_id END) as nb_locations
+            FROM stats_par_vendeur
+            GROUP BY id_employee, name, surname, is_patron
             ORDER BY ca_ventes DESC
         """, (start_date, end_date, start_date, end_date, start_date, end_date))
         stats['stats_par_vendeur'] = [dict(self.iso_format(row)) for row in cursor.fetchall()]
-        
+
+        # Nombre de clients uniques sur la période
+        cursor.execute("""
+            SELECT COUNT(DISTINCT c.id_client) as count
+            FROM COMMANDE c
+            LEFT JOIN VENTE v ON c.VENTE = v.id_commande
+            LEFT JOIN LOCATION l ON c.LOCATION = l.id_commande
+            WHERE (v.sale_date BETWEEN %s AND %s) OR (l.begin_date BETWEEN %s AND %s)
+        """, (start_date, end_date, start_date, end_date))
+        stats['clients_count'] = self.iso_format(cursor.fetchone())['count']
+
         cursor.close()
         conn.close()
         return stats
 
 
     def get_ventes_by_date_range(self, start_date: str, end_date: str) -> List[Dict]:
-        """Récupère les ventes sur une période donnée avec leurs détails"""
+        """Récupère les ventes sur une période donnée - utiliser la vue"""
         conn = self._get_connection()
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         
+        # Utiliser directement la vue
         cursor.execute("""
-            SELECT v.id_commande, v.sale_date, c.id_client,
-                cl.name as client_name, cl.surname as client_surname,
-                e.name as employee_name, e.surname as employee_surname,
-                (SELECT JSON_ARRAYAGG(
-                    JSON_OBJECT(
-                        'broom_name', b2.Libelle,
-                        'quantity', 1,
-                        'sale_price', b2.sale_price
-                    )
-                ) FROM BALAI b2 WHERE b2.id_vente = v.id_commande) as items
-            FROM COMMANDE c
-            JOIN VENTE v ON c.id_commande = v.id_commande
-            JOIN CLIENT cl ON c.id_client = cl.id_client
-            JOIN EMPLOYEE e ON c.id_employee = e.id_employee
-            WHERE v.sale_date BETWEEN %s AND %s
+            SELECT * FROM ca_ventes_detail
+            WHERE date BETWEEN %s AND %s
+            ORDER BY date DESC
         """, (start_date, end_date))
         
         results = cursor.fetchall()
@@ -2185,57 +2112,35 @@ class DAOMySQL:
 
 
     def get_locations_by_date_range(self, start_date: str, end_date: str) -> List[Dict]:
-        """Récupère les locations sur une période donnée avec leurs détails"""
+        """Récupère les locations sur une période donnée - utiliser la vue"""
         conn = self._get_connection()
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         
         cursor.execute("""
-            SELECT l.id_commande, l.begin_date, l.end_date, l.actual_end_date, l.status,
-                c.id_client, cl.name as client_name, cl.surname as client_surname,
-                e.name as employee_name, e.surname as employee_surname
-            FROM LOCATION l
+            SELECT 
+                l.begin_date as date,
+                l.id_commande,
+                l.end_date,
+                l.actual_end_date,
+                l.status,
+                c.id_client,
+                cl.name as client_name,
+                cl.surname as client_surname,
+                e.name as employee_name,
+                e.surname as employee_surname,
+                v.ca_location
+            FROM ca_locations_detail v
+            JOIN LOCATION l ON v.id_commande = l.id_commande
             JOIN COMMANDE c ON l.id_commande = c.id_commande
             JOIN CLIENT cl ON c.id_client = cl.id_client
             JOIN EMPLOYEE e ON c.id_employee = e.id_employee
-            WHERE l.begin_date BETWEEN %s AND %s
+            WHERE v.date BETWEEN %s AND %s
+            ORDER BY v.date DESC
         """, (start_date, end_date))
         
         results = cursor.fetchall()
         for i, row in enumerate(results):
-            row = self.iso_format(row)
-            
-            cursor2 = conn.cursor(pymysql.cursors.DictCursor)
-            cursor2.execute("""
-                SELECT b.id_balai, b.Libelle as broom_name, b.location_price
-                FROM DETAIL_LOCATION dl
-                JOIN BALAI b ON dl.id_balai = b.id_balai
-                WHERE dl.id_location = %s
-            """, (row['id_commande'],))
-            row['brooms'] = [dict(self.iso_format(item)) for item in cursor2.fetchall()]
-            cursor2.close()
-            
-            # Calculer le montant total
-            total_amount = 0
-            
-            if row['begin_date'] and row['brooms']:
-                from datetime import date
-                
-                begin_date = row['begin_date']
-                if isinstance(begin_date, str):
-                    begin_date = date.fromisoformat(begin_date)
-                
-                end_date_val = row['actual_end_date'] if row['actual_end_date'] else row['end_date']
-                if isinstance(end_date_val, str):
-                    end_date_val = date.fromisoformat(end_date_val)
-                
-                if end_date_val:
-                    days = (end_date_val - begin_date).days
-                    if days > 0:
-                        for broom in row['brooms']:
-                            total_amount += broom['location_price'] * days
-            
-            row['total_amount'] = round(total_amount, 2)
-            results[i] = row
+            results[i] = self.iso_format(row)
         
         cursor.close()
         conn.close()
@@ -2243,24 +2148,32 @@ class DAOMySQL:
 
 
     def get_commandes_fournisseur_by_date_range(self, start_date: str, end_date: str) -> List[Dict]:
-        """Récupère les commandes fournisseur sur une période donnée"""
+        """Récupère les commandes fournisseur - utiliser la vue"""
         conn = self._get_connection()
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         
         cursor.execute("""
-            SELECT cf.id_commande, cf.status, cf.command_date, cf.expected_delivery_date, 
+            SELECT 
+                cf.id_commande,
+                cf.status,
+                cf.command_date,
+                cf.expected_delivery_date,
                 cf.actual_delivery_date,
-                e.name as vendeur_name, e.surname as vendeur_surname
-            FROM COMMANDE_FOURNISSEUR cf
+                e.name as vendeur_name,
+                e.surname as vendeur_surname,
+                d.total_depenses
+            FROM depenses_fournisseurs d
+            JOIN COMMANDE_FOURNISSEUR cf ON d.id_commande = cf.id_commande
             JOIN EMPLOYEE e ON cf.id_vendeur = e.id_employee
-            WHERE cf.command_date BETWEEN %s AND %s
+            WHERE d.date BETWEEN %s AND %s
             ORDER BY cf.command_date DESC
         """, (start_date, end_date))
-        
+
         commandes = []
         for row in cursor.fetchall():
             commande = dict(self.iso_format(row))
-            
+
+            # Récupérer les détails des balais
             cursor2 = conn.cursor(pymysql.cursors.DictCursor)
             cursor2.execute("""
                 SELECT b.Libelle as broom_name, COUNT(*) as quantity,
@@ -2270,20 +2183,17 @@ class DAOMySQL:
                 WHERE b.id_commande_fournisseur = %s
                 GROUP BY b.Libelle, f.name, b.purchase_price
             """, (commande['id_commande'],))
-            
+
             commande['items'] = []
             for item in cursor2.fetchall():
                 formatted_item = self.iso_format(item)
                 formatted_item['total_price'] = formatted_item['purchase_price'] * formatted_item['quantity']
                 commande['items'].append(formatted_item)
-            
+
             cursor2.close()
-            
-            commande['total_depense'] = sum(item.get('total_price', 0) for item in commande['items'])
-            commande['total_articles'] = sum(item.get('quantity', 0) for item in commande['items'])
-            
             commandes.append(commande)
-        
+
         cursor.close()
         conn.close()
         return commandes
+
