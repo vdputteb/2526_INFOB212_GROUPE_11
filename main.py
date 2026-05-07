@@ -917,34 +917,6 @@ async def get_profile_stats(request: Request):
 
 @app.get("/api/admin/stats")
 @require_role(["admin"])
-async def get_admin_stats(request: Request, period: str = "all", start_date: str = None, end_date: str = None):
-    """Récupère les statistiques globales pour l'administrateur"""
-    
-    # Gérer les périodes prédéfinies
-    if period != "all" and not start_date and not end_date:
-        today = date.today()
-        if period == "last7":
-            start_date = (today - timedelta(days=7)).isoformat()
-            end_date = today.isoformat()
-        elif period == "last30":
-            start_date = (today - timedelta(days=30)).isoformat()
-            end_date = today.isoformat()
-        elif period == "last90":
-            start_date = (today - timedelta(days=90)).isoformat()
-            end_date = today.isoformat()
-        elif period == "year":
-            start_date = date(today.year, 1, 1).isoformat()
-            end_date = today.isoformat()
-    
-    if start_date and end_date:
-        stats = dao.get_stats_by_period(start_date, end_date)
-    else:
-        stats = dao.get_stats()
-    
-    return JSONResponse({"success": True, "stats": stats})
-
-@app.get("/api/admin/stats/detailed")
-@require_role(["admin"])
 async def get_detailed_stats(request: Request, period: str = "all", start_date: str = None, end_date: str = None):
     """Récupère les statistiques détaillées pour l'administrateur"""
     # Gérer les périodes prédéfinies

@@ -2016,7 +2016,7 @@ class DAOMySQL:
         cursor.execute("""
             SELECT status, COUNT(*) as count 
             FROM LOCATION 
-            WHERE begin_date BETWEEN %s AND %s
+            WHERE status = 'Pending' OR begin_date BETWEEN %s AND %s
             GROUP BY status
         """, (start_date, end_date))
         stats['location_status'] = {}
