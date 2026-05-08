@@ -1,0 +1,8 @@
+rajouter role dans bdd
+
+rajouter connexion bdd dans dao entrain
+
+get_role ??? voir ce que ça renvoie pour acceder (stat uniquement pour comptable et patron ) 
+
+pouvoir choisir role vendeur dans add ( patron, vendeur ou comptable)
+
