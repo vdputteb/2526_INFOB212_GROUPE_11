@@ -53,7 +53,7 @@ def require_role(allowed_roles: list):
                 )
             
             # Vérifier si l'utilisateur existe toujours dans la BDD et récupérer son rôle
-            employee = dao.get_vendeur_by_id(session_user['user_id'])
+            employee = dao.get_vendeur_by_id((getenv("DB_USER"), getenv("DB_PASSWORD")) , session_user['user_id'])
             if not employee:
                 raise HTTPException(
                     status_code=404, 
@@ -96,7 +96,7 @@ async def check_user_role(request: Request, required_roles: list) -> tuple:
     if not session_user:
         raise HTTPException(status_code=401, detail="Session invalide ou expirée")
     
-    employee = dao.get_vendeur_by_id(session_user["user_id"])
+    employee = dao.get_vendeur_by_id((getenv("DB_USER"), getenv("DB_PASSWORD")),session_user["user_id"])
     
     if not employee:
         raise HTTPException(status_code=404, detail="Utilisateur non trouvé")

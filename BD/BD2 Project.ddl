@@ -1893,6 +1893,13 @@ GRANT 'comptable' TO 'pomona.spout'@'localhost';
 GRANT 'comptable' TO 'zd1'@'localhost';
 
 
+SET DEFAULT ROLE 'patron' FOR 'albus.dumbledore'@'localhost';
+SET DEFAULT ROLE 'vendeur' FOR 'minerva.mcgonagall'@'localhost';
+SET DEFAULT ROLE 'vendeur' FOR 'severus.snape'@'localhost';
+SET DEFAULT ROLE 'vendeur' FOR 'filius.flitwick'@'localhost';
+SET DEFAULT ROLE 'comptable' FOR 'pomona.spout'@'localhost';
+SET DEFAULT ROLE 'comptable' FOR 'zd1'@'localhost';
+
 -- Trigger bloquant insertion
 -- ___________________________
 

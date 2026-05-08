@@ -1,7 +1,6 @@
 from os import getenv
 from datetime import date, timedelta
 from dotenv import load_dotenv
-import pymysql
 import uvicorn
 import bcrypt
 from fastapi import FastAPI, HTTPException, Request
@@ -41,31 +40,30 @@ app.add_middleware(
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     public_routes = ["/", "/auth", "/api/login"]
-    
-    request.state.user = None
+
     request.state.user_role = None
     request.state.user_id = None
-    
+    request.state.identifiants = (None, None)
+
     # Routes publiques ou fichiers statiques
     if request.url.path in public_routes or request.url.path.startswith("/static"):
         return await call_next(request)
-    
+
     session_user = request.cookies.get("userID")
-    
+
     if not session_user:
         return RedirectResponse("/auth")
-    
+
     payload = verify_token(session_user)
     if not payload:
         response = RedirectResponse("/auth")
         response.delete_cookie("userID")
         return response
-    
+
     # Stocker les infos utilisateur dans la requête
-    request.state.user = payload.get("username")
+    request.state.identifiants = ( str(payload.get("username")) , str(payload.get("password")))
     request.state.user_role = "admin" if payload.get("admin") else "vendeur"
     request.state.user_id = payload.get("user_id")
-    request.state.password = payload.get("password")
 
     try:
         response = await call_next(request)
@@ -101,7 +99,6 @@ async def home():
 async def authentification(request: Request):
     return templates.TemplateResponse(
         name="auth.html",
-        context={"user": request.state.user, "role": request.state.user_role},
         request=request
     )
 
@@ -122,7 +119,7 @@ async def shop(request: Request):
     client_id = request.cookies.get("clientID")
     client = None
     if client_id:
-        client = dao.get_client_by_id(int(client_id))
+        client = dao.get_client_by_id(request.state.identifiants , int(client_id))
         if not client:
             return templates.TemplateResponse(
                 request=request,
@@ -142,7 +139,7 @@ async def basket(request: Request):
     client_id = request.cookies.get("clientID")
     client = None
     if client_id:
-        client = dao.get_client_by_id(int(client_id))
+        client = dao.get_client_by_id(request.state.identifiants , int(client_id))
     
     return templates.TemplateResponse(
         request=request,
@@ -189,22 +186,22 @@ async def register_employee(request: Request, employee: Employee):
     Inscription d'un nouvel employé (admin uniquement)
     """
     # Vérifier si l'email existe déjà
-    if dao.get_employee_by_email(employee.mail):
+    if dao.get_employee_by_email(request.state.identifiants,employee.mail):
         raise HTTPException(status_code=400, detail="Email already used")
-    
+
     # Vérifier si le login existe déjà
-    if dao.get_employee_by_login(employee.username):
+    if dao.get_employee_by_login(request.state.identifiants, employee.username):
         raise HTTPException(status_code=400, detail="Username already used")
-    
+
     # Vérifier le nombre de téléphones
     if len(employee.phone) < 1:
         raise HTTPException(status_code=400, detail="Phone number needed")
     if len(employee.phone) > 3:
         raise HTTPException(status_code=400, detail="Too many phone numbers given")
-    
+
     # Hasher le mot de passe
     hashed_password = bcrypt.hashpw(employee.password.encode('utf-8'), bcrypt.gensalt())
-    
+
     # Créer le nouvel employé
     new_employee = Employee(
         username=employee.username,
@@ -218,7 +215,7 @@ async def register_employee(request: Request, employee: Employee):
         id_patron=request.state.user_id if not employee.is_admin else None
     )
     
-    success = dao.create_employee(new_employee)
+    success = dao.create_employee(request.state.identifiants, new_employee)
     if not success:
         raise HTTPException(status_code=500, detail="Error creating employee")
     
@@ -267,7 +264,7 @@ async def register_client(request: Request, client_data: dict):
             telephones=client.telephones
         )
 
-    success = dao.add_client(client)
+    success = dao.add_client(request.state.identifiants, client)
     if not success:
         raise HTTPException(status_code=500, detail="Error creating client")
     
@@ -282,9 +279,9 @@ async def login(login_data: LoginRequest):
     Authentification d'un employé
     """
     # Récupérer l'employé par email ou login
-    employee = dao.get_employee_by_email(login_data.mail)
+    employee = dao.get_employee_by_email((getenv("DB_USER"),getenv("DB_PASSWORD")), login_data.mail)
     if not employee:
-        employee = dao.get_employee_by_login(login_data.username)
+        employee = dao.get_employee_by_login((getenv("DB_USER"),getenv("DB_PASSWORD")), login_data.username)
     
     if not employee:
         raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -336,7 +333,7 @@ async def login(login_data: LoginRequest):
 @app.get("/api/clients")
 async def get_clients(request: Request):
     """Récupère tous les clients"""
-    clients = dao.get_all_clients()
+    clients = dao.get_all_clients(request.state.identifiants)
     if not clients:
         raise HTTPException(status_code=404, detail="Clients not found")
     
@@ -344,9 +341,9 @@ async def get_clients(request: Request):
 
 
 @app.post("/api/clients/select")
-async def select_client(select_data: SelectClientRequest):
+async def select_client(request : Request, select_data: SelectClientRequest):
     """Sélectionne un client pour la session"""
-    client = dao.get_client_by_id(select_data.client_id)
+    client = dao.get_client_by_id(request.state.identifiants, select_data.client_id)
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
     
@@ -360,7 +357,7 @@ async def modify_client(request: Request, client_data: dict):
     """Modifie un client existant"""
     try:
         # Récupérer le client existant
-        existing_client = dao.get_client_by_id(client_data.get("id_client"))
+        existing_client = dao.get_client_by_id(request.state.identifiants, client_data.get("id_client"))
         if not existing_client:
             raise HTTPException(status_code=404, detail="Client not found")
         
@@ -400,7 +397,7 @@ async def modify_client(request: Request, client_data: dict):
                 telephones=moldu_data.get("telephones", [])
             )
         
-        success = dao.modify_client(client)
+        success = dao.modify_client(request.state.identifiants, client)
         if not success:
             raise HTTPException(status_code=404, detail="Failed to modify client")
 
@@ -413,7 +410,7 @@ async def modify_client(request: Request, client_data: dict):
 @app.delete("/api/delete/client/{client_id}")
 async def delete_client(request: Request, client_id: int):
     """Supprime un client"""
-    client = dao.get_client_by_id(client_id)
+    client = dao.get_client_by_id(request.state.identifiants,client_id)
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
     
@@ -423,10 +420,10 @@ async def delete_client(request: Request, client_id: int):
         # Supprimer le cookie
         response = JSONResponse({"success": True, "message": f"Client {client_id} successfully deleted"})
         response.delete_cookie("clientID")
-        dao.delete_client_by_id(client_id)
+        dao.delete_client_by_id(request.state.identifiants, client_id)
         return response
     
-    success = dao.delete_client_by_id(client_id)
+    success = dao.delete_client_by_id(request.state.identifiants, client_id)
     if not success:
         raise HTTPException(status_code=500, detail="Error deleting client")
     
@@ -439,7 +436,7 @@ async def delete_client(request: Request, client_id: int):
 @require_role(["admin"])
 async def get_vendeurs(request: Request):
     """Récupère tous les vendeurs"""
-    vendeurs = dao.get_all_vendeurs(request.state.user_id)
+    vendeurs = dao.get_all_vendeurs(request.state.identifiants, request.state.user_id)
     if not vendeurs:
         return JSONResponse({"success": True, "vendeurs": []})
     
@@ -450,7 +447,7 @@ async def get_vendeurs(request: Request):
 @require_role(["admin"])
 async def select_vendeur(request: Request, select_data: SelectVendeurRequest):
     """Sélectionne un vendeur pour la session"""
-    vendeur = dao.get_vendeur_by_id(select_data.vendeurs_id)
+    vendeur = dao.get_vendeur_by_id(request.state.identifiants, select_data.vendeurs_id)
     if not vendeur:
         raise HTTPException(status_code=404, detail="Salesperson not found")
     
@@ -471,7 +468,7 @@ async def modify_vendeur(request: Request, vendeur_data: dict):
         raise HTTPException(status_code=400, detail="Vendeur ID required")
     
     # Récupérer le vendeur existant
-    existing_vendeur = dao.get_vendeur_by_id(vendeur_id)
+    existing_vendeur = dao.get_vendeur_by_id(request.state.identifiants, vendeur_id)
     if not existing_vendeur:
         raise HTTPException(status_code=404, detail="Vendeur not found")
     
@@ -505,7 +502,7 @@ async def modify_vendeur(request: Request, vendeur_data: dict):
     if not update_data:
         return JSONResponse({"success": True, "message": "No changes to apply"})
     
-    success = dao.modify_vendeur_partial(vendeur_id, update_data)
+    success = dao.modify_vendeur_partial(request.state.identifiants, vendeur_id, update_data)
     if success:
         return JSONResponse({"success": True, "message": "Vendeur modified successfully"})
     else:
@@ -516,7 +513,7 @@ async def modify_vendeur(request: Request, vendeur_data: dict):
 @require_role(["admin"])
 async def delete_vendeur(request: Request, vendeurs_id: int):
     """Supprime un vendeur"""
-    vendeur = dao.get_vendeur_by_id(vendeurs_id)
+    vendeur = dao.get_vendeur_by_id(request.state.identifiants, vendeurs_id)
     if not vendeur:
         raise HTTPException(status_code=404, detail="Salesperson not found")
     
@@ -525,10 +522,10 @@ async def delete_vendeur(request: Request, vendeurs_id: int):
     if selected_vendeur and int(selected_vendeur) == vendeurs_id:
         response = JSONResponse({"success": True, "message": f"Salesperson {vendeurs_id} successfully deleted"})
         response.delete_cookie("vendeurID")
-        dao.delete_vendeur_by_id(vendeurs_id)
+        dao.delete_vendeur_by_id(request.state.identifiants, vendeurs_id)
         return response
     
-    success = dao.delete_vendeur_by_id(vendeurs_id)
+    success = dao.delete_vendeur_by_id(request.state.identifiants, vendeurs_id)
     if not success:
         raise HTTPException(status_code=500, detail="Error deleting salesperson")
     
@@ -545,18 +542,18 @@ async def get_catalogue(request: Request):
     if not client_id:
         raise HTTPException(status_code=400, detail="No client selected")
     
-    client = dao.get_client_by_id(int(client_id))
+    client = dao.get_client_by_id(request.state.identifiants, int(client_id))
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
     
-    brooms = dao.get_client_visible_brooms(int(client_id))
+    brooms = dao.get_client_visible_brooms(request.state.identifiants, int(client_id))
     return JSONResponse(brooms)
 
 
 @app.get("/api/catalogue/{broom_id}")
 async def get_broom(request: Request, broom_id: int):
     """Récupère les détails d'un balai spécifique"""
-    broom = dao.get_broom_by_id(broom_id)
+    broom = dao.get_broom_by_id(request.state.identifiants, broom_id)
     if not broom:
         raise HTTPException(status_code=404, detail="Broom not found")
     return JSONResponse(broom)
@@ -565,14 +562,14 @@ async def get_broom(request: Request, broom_id: int):
 @app.get("/api/balais/all")
 async def get_all_brooms(request: Request):
     """Récupère tous les balais (pour le formulaire de commande fournisseur)"""
-    brooms = dao.get_all_brooms()
+    brooms = dao.get_all_brooms(request.state.identifiants)
     return JSONResponse({"success": True, "balais": brooms})
 
 
 @app.get("/api/balais/available")
 async def get_available_brooms(request: Request):
     """Récupère tous les balais disponibles"""
-    brooms = dao.get_available_brooms()
+    brooms = dao.get_available_brooms(request.state.identifiants)
     return JSONResponse({"success": True, "balais": brooms})
 
 
@@ -582,7 +579,7 @@ async def get_available_brooms(request: Request):
 @require_role(["admin"])
 async def get_locations(request: Request):
     """Récupère toutes les locations"""
-    return JSONResponse(dao.get_all_locations())
+    return JSONResponse(dao.get_all_locations(request.state.identifiants))
 
 
 @app.get("/api/locations/client")
@@ -593,7 +590,7 @@ async def get_locations_by_client(request: Request):
     if not client_id:
         raise HTTPException(status_code=400, detail="No client selected")
     
-    return JSONResponse(dao.get_client_locations(int(client_id)))
+    return JSONResponse(dao.get_client_locations(request.state.identifiants, int(client_id)))
 
 
 @app.get("/api/locations/vendeur")
@@ -604,14 +601,14 @@ async def get_locations_by_vendeur(request: Request):
     if not vendeur_id:
         raise HTTPException(status_code=400, detail="No salesperson selected")
     
-    return JSONResponse(dao.get_vendeur_locations(int(vendeur_id)))
+    return JSONResponse(dao.get_vendeur_locations(request.state.identifiants, int(vendeur_id)))
 
 
 @app.get("/api/locations/check")
 async def check_availability(request: Request, broom_id: int, start_date: str, end_date: str):
     """Vérifie la disponibilité d'un balai"""
     try:
-        available, conflict_date = dao.check_broom_availability(broom_id, start_date, end_date)
+        available, conflict_date = dao.check_broom_availability(request.state.identifiants, broom_id, start_date, end_date)
         
         if available:
             return JSONResponse({"available": True, "message": "Broom available"})
@@ -632,7 +629,7 @@ async def validate_return_location(request: Request, return_data: dict):
     commande_id = return_data.get("commandeId")
     actual_end_date = return_data.get("actual_end_date")
     
-    success = dao.validate_location_return(commande_id, actual_end_date)
+    success = dao.validate_location_return(request.state.identifiants, commande_id, actual_end_date)
     if not success:
         raise HTTPException(status_code=500, detail="Erreur lors de la validation du retour")
     
@@ -648,13 +645,13 @@ async def create_reservation(request: Request, reservation: Location):
         raise HTTPException(status_code=400, detail="No client selected")
     
     # Vérifier la disponibilité
-    available, _ = dao.check_broom_availability(reservation.broomId, reservation.startDate, reservation.endDate)
+    available, _ = dao.check_broom_availability(request.state.identifiants, reservation.broomId, reservation.startDate, reservation.endDate)
     
     if not available:
         raise HTTPException(status_code=409, detail="This broom is already booked for this period")
     
     try:
-        success = dao.add_location(int(client_id), request.state.user_id, reservation)
+        success = dao.add_location(request.state.identifiants, int(client_id), request.state.user_id, reservation)
         if not success:
             raise HTTPException(status_code=500, detail="Failed to create reservation")
         return JSONResponse({"message": "Booking made"}, status_code=201)
@@ -665,7 +662,7 @@ async def create_reservation(request: Request, reservation: Location):
 @app.delete("/api/locations/{reservation_id}")
 async def delete_reservation(request: Request, reservation_id: int):
     """Annule une location"""
-    deleted = dao.delete_location(reservation_id)
+    deleted = dao.delete_location(request.state.identifiants, reservation_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Booking not found")
     return JSONResponse({"message": "Booking canceled"})
@@ -677,7 +674,7 @@ async def delete_reservation(request: Request, reservation_id: int):
 @require_role(["admin"])
 async def get_all_ventes(request: Request):
     """Récupère toutes les ventes"""
-    return JSONResponse(dao.get_all_ventes())
+    return JSONResponse(dao.get_all_ventes(request.state.identifiants))
 
 
 @app.get("/api/ventes/client")
@@ -688,7 +685,7 @@ async def get_ventes_client(request: Request):
     if not client_id:
         raise HTTPException(status_code=400, detail="No client selected")
     
-    return JSONResponse(dao.get_client_ventes(int(client_id)))
+    return JSONResponse(dao.get_client_ventes(request.state.identifiants, int(client_id)))
 
 
 @app.get("/api/ventes/vendeur")
@@ -699,7 +696,7 @@ async def get_ventes_vendeur(request: Request):
     if not vendeur_id:
         raise HTTPException(status_code=400, detail="No salesperson selected")
     
-    return JSONResponse(dao.get_vendeur_ventes(int(vendeur_id)))
+    return JSONResponse(dao.get_vendeur_ventes(request.state.identifiants, int(vendeur_id)))
 
 
 @app.get("/api/ventes/client/detail/{commande_id}")
@@ -710,7 +707,7 @@ async def get_vente_detail(request: Request, commande_id: int):
     if not client_id:
         raise HTTPException(status_code=400, detail="No client selected")
     
-    vente_detail = dao.get_vente_detail(commande_id, int(client_id))
+    vente_detail = dao.get_vente_detail(request.state.identifiants, commande_id, int(client_id))
     if not vente_detail:
         raise HTTPException(status_code=404, detail="Commande non trouvée")
     
@@ -727,12 +724,12 @@ async def create_commande(request: Request, commande_data: CreateCommandeRequest
 
     # Vérifier que tous les balais sont disponibles
     for broom_id in commande_data.broom_ids:
-        broom = dao.get_broom_by_id(broom_id)
+        broom = dao.get_broom_by_id(request.state.identifiants, broom_id)
         if not broom or broom['status'] != 'in stock':
             raise HTTPException(status_code=409, detail=f"Broom {broom_id} is not available")
 
     try:
-        success = dao.add_vente(request.state.user_id, int(client_id), commande_data.broom_ids)
+        success = dao.add_vente(request.state.identifiants, request.state.user_id, int(client_id), commande_data.broom_ids)
         if not success:
             raise HTTPException(status_code=500, detail="Failed to create order")
         return JSONResponse({"message": "Order made"}, status_code=201)
@@ -744,11 +741,11 @@ async def create_commande(request: Request, commande_data: CreateCommandeRequest
 async def delete_vente(request: Request, vente_id: int):
     """Supprime une vente et rembourse le client"""
     # Vérifier si la vente existe
-    vente = dao.get_vente_by_id(vente_id)
+    vente = dao.get_vente_by_id(request.state.identifiants, vente_id)
     if not vente:
         raise HTTPException(status_code=404, detail="Vente non trouvée")
     
-    success = dao.delete_vente(vente_id)
+    success = dao.delete_vente(request.state.identifiants, vente_id)
     if not success:
         raise HTTPException(status_code=500, detail="Erreur lors de la suppression de la vente")
     
@@ -760,7 +757,7 @@ async def delete_vente(request: Request, vente_id: int):
 @app.get("/api/me")
 async def get_current_user(request: Request):
     """Récupère les informations de l'utilisateur connecté"""
-    employee = dao.get_vendeur_by_id(request.state.user_id)
+    employee = dao.get_vendeur_by_id(request.state.identifiants, request.state.user_id)
     if not employee:
         raise HTTPException(status_code=404, detail="User not found")
     
@@ -783,7 +780,7 @@ async def get_current_user(request: Request):
 @app.get("/api/profile/ventes")
 async def get_profile_ventes(request: Request, page: int = 1, per_page: int = 10):
     """Récupère les ventes de l'utilisateur connecté"""
-    ventes = dao.get_vendeur_ventes(request.state.user_id)
+    ventes = dao.get_vendeur_ventes(request.state.identifiants, request.state.user_id)
     
     total = len(ventes)
     start = (page - 1) * per_page
@@ -805,7 +802,7 @@ async def get_profile_ventes(request: Request, page: int = 1, per_page: int = 10
 @app.get("/api/profile/locations")
 async def get_profile_locations(request: Request, page: int = 1, per_page: int = 10):
     """Récupère les locations gérées par l'utilisateur"""
-    locations = dao.get_vendeur_locations(request.state.user_id)
+    locations = dao.get_vendeur_locations(request.state.identifiants, request.state.user_id)
     
     total = len(locations)
     start = (page - 1) * per_page
@@ -828,7 +825,7 @@ async def get_profile_locations(request: Request, page: int = 1, per_page: int =
 @app.get("/api/fournisseurs")
 async def get_fournisseurs(request: Request):
     """Récupère la liste des fournisseurs"""
-    fournisseurs = dao.get_all_fabricants()
+    fournisseurs = dao.get_all_fabricants(request.state.identifiants)
     return JSONResponse({"success": True, "fournisseurs": fournisseurs})
 
 
@@ -845,13 +842,13 @@ async def create_commande_fournisseur(request: Request, commande_data: dict):
     
     # Validation : vérifier que tous les balais existent
     for item in data["items"]:
-        broom = dao.get_broom_by_id(item["broom_id"])
+        broom = dao.get_broom_by_id(request.state.identifiants, item["broom_id"])
         if not broom:
             raise HTTPException(status_code=400, detail=f"Le balai {item['broom_id']} n'existe pas")
         if broom["id_fabricant"] != data["fournisseur_id"]:
             raise HTTPException(status_code=400, detail=f"Le balai {item['broom_id']} n'appartient pas au fournisseur sélectionné")
     
-    success = dao.create_commande_fournisseur(data)
+    success = dao.create_commande_fournisseur(request.state.identifiants , data)
     if not success:
         raise HTTPException(status_code=500, detail="Erreur lors de la création")
     
@@ -861,7 +858,7 @@ async def create_commande_fournisseur(request: Request, commande_data: dict):
 @app.get("/api/profile/commandes-fournisseur")
 async def get_profile_commandes_fournisseur(request: Request, page: int = 1, per_page: int = 10):
     """Récupère les commandes fournisseur de l'utilisateur"""
-    commandes = dao.get_vendeur_commandes_fournisseur(request.state.user_id)
+    commandes = dao.get_vendeur_commandes_fournisseur(request.state.identifiants, request.state.user_id)
     
     total = len(commandes)
     start = (page - 1) * per_page
@@ -883,7 +880,7 @@ async def get_profile_commandes_fournisseur(request: Request, page: int = 1, per
 @require_role(["admin"])
 async def get_pending_approvals(request: Request):
     """Récupère les commandes fournisseur en attente d'approbation (admin uniquement)"""
-    commandes = dao.get_pending_approvals()
+    commandes = dao.get_pending_approvals(request.state.identifiants)
     return JSONResponse({"success": True, "commandes": commandes})
 
 
@@ -896,9 +893,9 @@ async def approve_commande_fournisseur(request: Request):
     status = approve_data.get("status")
     
     if status == "Approved":
-        success = dao.approve_commande_fournisseur(commande_id)
+        success = dao.approve_commande_fournisseur(request.state.identifiants,commande_id)
     else:
-        success = dao.update_commande_fournisseur_status(commande_id, status)
+        success = dao.update_commande_fournisseur_status(request.state.identifiants,commande_id, status)
     
     if not success:
         raise HTTPException(status_code=500, detail="Erreur lors de la mise à jour")
@@ -911,7 +908,7 @@ async def approve_commande_fournisseur(request: Request):
 @app.get("/api/profile/stats")
 async def get_profile_stats(request: Request):
     """Récupère les statistiques de l'utilisateur"""
-    stats = dao.get_vendeur_stats(request.state.user_id)
+    stats = dao.get_vendeur_stats(request.state.identifiants, request.state.user_id)
     return JSONResponse({"success": True, "stats": stats})
 
 
@@ -939,18 +936,18 @@ async def get_detailed_stats(request: Request, period: str = "all", start_date: 
 
     if start_date and end_date:
         # Utiliser les méthodes DAO avec filtrage par date
-        result['ventes_detaillees'] = dao.get_ventes_by_date_range(start_date, end_date)
-        result['locations_detaillees'] = dao.get_locations_by_date_range(start_date, end_date)
-        result['commandes_fournisseur'] = dao.get_commandes_fournisseur_by_date_range(start_date, end_date)
-        result['statistiques'] = dao.get_stats_by_period(start_date, end_date)
+        result['ventes_detaillees'] = dao.get_ventes_by_date_range(request.state.identifiants,start_date, end_date)
+        result['locations_detaillees'] = dao.get_locations_by_date_range(request.state.identifiants,start_date, end_date)
+        result['commandes_fournisseur'] = dao.get_commandes_fournisseur_by_date_range(request.state.identifiants,start_date, end_date)
+        result['statistiques'] = dao.get_stats_by_period(request.state.identifiants,start_date, end_date)
     else:
-        result['ventes_detaillees'] = dao.get_all_ventes()
-        result['locations_detaillees'] = dao.get_all_locations()
-        result['commandes_fournisseur'] = dao.get_all_commandes_fournisseur()
-        result['statistiques'] = dao.get_stats()
+        result['ventes_detaillees'] = dao.get_all_ventes(request.state.identifiants)
+        result['locations_detaillees'] = dao.get_all_locations(request.state.identifiants)
+        result['commandes_fournisseur'] = dao.get_all_commandes_fournisseur(request.state.identifiants)
+        result['statistiques'] = dao.get_stats(request.state.identifiants)
 
     # Récupérer tous les balais (pas besoin de filtre temporel)
-    result['balais_stock'] = dao.get_all_brooms()
+    result['balais_stock'] = dao.get_all_brooms(request.state.identifiants)
 
     return JSONResponse({"success": True, "stats": result})
 

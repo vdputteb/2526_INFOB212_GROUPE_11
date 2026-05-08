@@ -1,5 +1,4 @@
-from decimal import ROUND_HALF_UP, Decimal
-
+from decimal import Decimal
 import pymysql
 from pymysql import Error
 from typing import Any, Optional, Dict, List
@@ -7,6 +6,7 @@ from datetime import date, datetime
 from BD.models import Employee, Client, Reservation
 
 class DAOMySQL:
+
     def __init__(self, host: str , port: int,
                  user: str , password: str ,
                  database: str ):
@@ -19,20 +19,26 @@ class DAOMySQL:
         self.init_database()
 
 
-    def _get_connection(self):
+    def _get_connection(self, identifiant : Optional[tuple[str,str]]):
         """Établit une connexion à la base de données MySQL"""
         try:
+            user = self.user
+            password = self.password
+            if identifiant :
+                user = identifiant[0]
+                password = identifiant[1]
+
             conn = pymysql.connect(
                 host=self.host,
                 port=self.port,
-                user=self.user,
-                password=self.password,
+                user= user,
+                password= password,
                 database=self.database,
                 autocommit=False,
-                connect_timeout=10  # Note: connection_timeout → connect_timeout
+                connect_timeout=10
             )
             return conn
-        except pymysql.Error as e:  # Note: mysql.connector.Error → pymysql.Error
+        except pymysql.Error as e:
             print(f"Erreur de connexion MySQL: {e}")
             print(f"Tentative de connexion à {self.host}:{self.port} avec l'utilisateur {self.user}")
             raise
@@ -83,15 +89,83 @@ class DAOMySQL:
                 row[key] = float(value)
         return row
 
+
+    def is_patron(self, identifiant : tuple[str,str] , id_employee: int) -> bool:
+        """Vérifie si un employé est un patron"""
+        conn = self._get_connection(identifiant)
+        cursor = conn.cursor(pymysql.cursors.DictCursor)
+        cursor.execute("""
+            SELECT id_patron IS NULL as is_patron
+            FROM EMPLOYEE WHERE id_employee = %s
+        """, (id_employee,))
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        return result['is_patron'] == 1 if result else False
+
+
+    def login(self, id_employee: int) -> bool:
+        """Connecte un employé"""
+        conn = self._get_connection(None)
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT id_employee FROM EMPLOYEE WHERE id_employee = %s", (id_employee,))
+            if not cursor.fetchone():
+                return False
+            
+            cursor.execute("""
+                UPDATE EMPLOYEE
+                SET actif = 1 , last_login = %s
+                WHERE id_employee = %s
+            """, (datetime.now().isoformat(), id_employee,))
+            conn.commit()
+            return cursor.rowcount > 0
+        except Error as e:
+            print(f"Login error for employee {id_employee}: {e}")
+            conn.rollback()
+            return False
+        finally:
+            cursor.close()
+            conn.close()
+
+
+    def logout(self, id_employee: int) -> bool:
+        """Déconnecte un employé"""
+        conn = self._get_connection(None)
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT id_employee FROM EMPLOYEE WHERE id_employee = %s", (id_employee,))
+            if not cursor.fetchone():
+                return False
+            
+            cursor.execute("""
+                UPDATE EMPLOYEE
+                SET actif = 0 , last_login = %s
+                WHERE id_employee = %s
+            """, (date.today().isoformat(), id_employee,))
+            conn.commit()
+            return cursor.rowcount > 0
+        except Error as e:
+            print(f"Logout error for employee {id_employee}: {e}")
+            conn.rollback()
+            return False
+        finally:
+            cursor.close()
+            conn.close()
+
+
+    def get_role(self, identifiant : tuple[str,str]) -> str:
+        return ""
+
     # --- Méthodes pour les EMPLOYES ---
 
-    def get_employee_by_email(self, email: str) -> Optional[Dict]:
+    def get_employee_by_email(self, identifiant : tuple[str,str] , email: str) -> Optional[Dict]:
         """Récupère un employé par son email"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         cursor.execute("""
             SELECT id_employee, login, password, actif, name, surname, 
-                   mail_pro, tel1, tel2, tel3, id_patron
+                    mail_pro, tel1, tel2, tel3, id_patron
             FROM EMPLOYEE WHERE mail_pro = %s
         """, (email,))
         result = cursor.fetchone()
@@ -100,9 +174,9 @@ class DAOMySQL:
         return result if result else None
 
 
-    def get_employee_by_login(self, login: str) -> Optional[Dict]:
+    def get_employee_by_login(self, identifiant : tuple[str,str] , login: str) -> Optional[Dict]:
         """Récupère un employé par son login"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         cursor.execute("""
             SELECT id_employee, login, password, actif, name, surname, 
@@ -115,9 +189,9 @@ class DAOMySQL:
         return result if result else None
 
 
-    def get_employee_identification(self, email: str) -> Optional[tuple]:
+    def get_employee_identification(self, identifiant : tuple[str,str] , email: str) -> Optional[tuple]:
         """Récupère les identifiants pour l'authentification"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor()
         cursor.execute("""
             SELECT login, mail_pro, password, id_patron
@@ -129,27 +203,13 @@ class DAOMySQL:
         return result if result else None
 
 
-    def is_patron(self, id_employee: int) -> bool:
-        """Vérifie si un employé est un patron"""
-        conn = self._get_connection()
-        cursor = conn.cursor(pymysql.cursors.DictCursor)
-        cursor.execute("""
-            SELECT id_patron IS NULL as is_patron
-            FROM EMPLOYEE WHERE id_employee = %s
-        """, (id_employee,))
-        result = cursor.fetchone()
-        cursor.close()
-        conn.close()
-        return result['is_patron'] == 1 if result else False
-
-
-    def create_employee(self, employee: Employee) -> bool:
+    def create_employee(self, identifiant : tuple[str,str] , employee: Employee) -> bool:
         """Crée un nouvel employé"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor()
         try:
             # Vérifier si l'email existe déjà
-            if self.get_employee_by_email(employee.mail):
+            if self.get_employee_by_email(identifiant, employee.mail):
                 return False
             
             cursor.execute("""
@@ -176,59 +236,9 @@ class DAOMySQL:
             conn.close()
 
 
-    def login(self, id_employee: int) -> bool:
-        """Connecte un employé"""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        try:
-            cursor.execute("SELECT id_employee FROM EMPLOYEE WHERE id_employee = %s", (id_employee,))
-            if not cursor.fetchone():
-                return False
-            
-            cursor.execute("""
-                UPDATE EMPLOYEE
-                SET actif = 1
-                WHERE id_employee = %s
-            """, (id_employee,))
-            conn.commit()
-            return cursor.rowcount > 0
-        except Error as e:
-            print(f"Login error for employee {id_employee}: {e}")
-            conn.rollback()
-            return False
-        finally:
-            cursor.close()
-            conn.close()
-
-
-    def logout(self, id_employee: int) -> bool:
-        """Déconnecte un employé"""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        try:
-            cursor.execute("SELECT id_employee FROM EMPLOYEE WHERE id_employee = %s", (id_employee,))
-            if not cursor.fetchone():
-                return False
-            
-            cursor.execute("""
-                UPDATE EMPLOYEE
-                SET actif = 0
-                WHERE id_employee = %s
-            """, (id_employee,))
-            conn.commit()
-            return cursor.rowcount > 0
-        except Error as e:
-            print(f"Logout error for employee {id_employee}: {e}")
-            conn.rollback()
-            return False
-        finally:
-            cursor.close()
-            conn.close()
-
-
-    def get_all_vendeurs(self, id_patron: int) -> List[Dict]:
+    def get_all_vendeurs(self, identifiant : tuple[str,str] , id_patron: int) -> List[Dict]:
         """Récupère tous les vendeurs (employés non patrons)"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         cursor.execute("""
             SELECT id_employee, login, name, surname, mail_pro, tel1, tel2, tel3, actif
@@ -240,9 +250,9 @@ class DAOMySQL:
         return results
 
 
-    def get_vendeur_by_id(self, vendeur_id: int) -> Optional[Dict]:
+    def get_vendeur_by_id(self, identifiant : tuple[str,str] , vendeur_id: int) -> Optional[Dict]:
         """Récupère un vendeur par son ID"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         cursor.execute("""
             SELECT id_employee, login, name, surname, mail_pro, tel1, tel2, tel3, actif, id_patron
@@ -254,14 +264,9 @@ class DAOMySQL:
         return result if result else None
 
 
-    def add_vendeur(self, vendeur: Employee) -> bool:
-        """Ajoute un nouveau vendeur"""
-        return self.create_employee(vendeur)
-
-
-    def modify_vendeur(self, vendeur: Employee) -> bool:
+    def modify_vendeur(self, identifiant : tuple[str,str] , vendeur: Employee) -> bool:
         """Modifie un vendeur existant"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor()
         try:
             cursor.execute("""
@@ -287,9 +292,9 @@ class DAOMySQL:
             conn.close()
 
 
-    def modify_vendeur_partial(self, vendeur_id: int, update_data: dict) -> bool:
+    def modify_vendeur_partial(self, identifiant : tuple[str,str] , vendeur_id: int, update_data: dict) -> bool:
         """Modifie partiellement un vendeur"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor()
         if not update_data:
             return True
@@ -312,9 +317,9 @@ class DAOMySQL:
             conn.close()
 
 
-    def delete_vendeur_by_id(self, vendeur_id: int) -> bool:
+    def delete_vendeur_by_id(self, identifiant : tuple[str,str] , vendeur_id: int) -> bool:
         """Supprime un vendeur"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor()
         try:
             cursor.execute("DELETE FROM EMPLOYEE WHERE id_employee = %s AND id_patron IS NOT NULL", (vendeur_id,))
@@ -329,9 +334,9 @@ class DAOMySQL:
             conn.close()
 
 
-    def update_employee_phones(self, employee_id: int, phones: list) -> bool:
+    def update_employee_phones(self, identifiant : tuple[str,str] , employee_id: int, phones: list) -> bool:
         """Met à jour les téléphones d'un employé"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor()
         try:
             cursor.execute("""
@@ -357,9 +362,9 @@ class DAOMySQL:
 
     # --- Méthodes pour les CLIENTS ---
 
-    def get_all_clients(self) -> List[Dict]:
+    def get_all_clients(self, identifiant : tuple[str,str]) -> List[Dict]:
         """Récupère tous les clients avec leurs détails (sorciers ou moldus)"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         
         cursor.execute("""
@@ -422,9 +427,9 @@ class DAOMySQL:
         return clients
 
 
-    def get_client_by_id(self, client_id: int) -> Optional[Dict]:
+    def get_client_by_id(self, identifiant : tuple[str,str] , client_id: int) -> Optional[Dict]:
         """Récupère un client par son ID"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         
         cursor.execute("""
@@ -469,9 +474,9 @@ class DAOMySQL:
         return client if client else None
 
 
-    def add_client(self, client: Client) -> bool:
+    def add_client(self, identifiant : tuple[str,str] , client: Client) -> bool:
         """Ajoute un nouveau client (sorcier ou moldu)"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor()
         try:
             cursor.execute("""
@@ -526,9 +531,9 @@ class DAOMySQL:
             conn.close()
 
 
-    def modify_client(self, client: Client) -> bool:
+    def modify_client(self, identifiant : tuple[str,str] , client: Client) -> bool:
         """Modifie un client existant"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor()
         try:
             # Mise à jour du client principal avec les flags sorcier et moldu
@@ -636,9 +641,9 @@ class DAOMySQL:
             conn.close()
 
 
-    def delete_client_by_id(self, client_id: int) -> bool:
+    def delete_client_by_id(self, identifiant : tuple[str,str] , client_id: int) -> bool:
         """Supprime un client"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor()
         try:
             cursor.execute("DELETE FROM SORCIER WHERE id_client = %s", (client_id,))
@@ -656,9 +661,9 @@ class DAOMySQL:
 
     # --- Méthodes pour les BALAIS ---
 
-    def get_all_brooms(self) -> List[Dict]:
+    def get_all_brooms(self, identifiant : tuple[str,str]) -> List[Dict]:
         """Récupère tous les balais"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         cursor.execute("""
             SELECT b.*, f.name as fabricant_name, 
@@ -676,9 +681,9 @@ class DAOMySQL:
         return results
 
 
-    def get_broom_by_id(self, broom_id: int) -> Optional[Dict]:
+    def get_broom_by_id(self, identifiant : tuple[str,str] , broom_id: int) -> Optional[Dict]:
         """Récupère un balai par son ID"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         cursor.execute("""
             SELECT b.*, f.name as fabricant_name,
@@ -697,9 +702,9 @@ class DAOMySQL:
         return None
 
 
-    def get_client_visible_brooms(self, client_id: int) -> List[Dict]:
+    def get_client_visible_brooms(self, identifiant : tuple[str,str] , client_id: int) -> List[Dict]:
         """Récupère les balais visibles par un client selon son type"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         
         cursor.execute("SELECT SORCIER FROM CLIENT WHERE id_client = %s", (client_id,))
@@ -732,9 +737,9 @@ class DAOMySQL:
         return results
 
 
-    def get_available_brooms(self) -> List[Dict]:
+    def get_available_brooms(self, identifiant : tuple[str,str]) -> List[Dict]:
         """Récupère tous les balais disponibles (in stock)"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         
         cursor.execute("""
@@ -754,9 +759,9 @@ class DAOMySQL:
 
     # --- Méthodes pour les locations (LOCATIONS) ---
 
-    def get_all_locations(self) -> List[Dict]:
+    def get_all_locations(self, identifiant : tuple[str,str]) -> List[Dict]:
         """Récupère toutes les locations avec calcul du montant"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         
         cursor.execute("""
@@ -825,9 +830,9 @@ class DAOMySQL:
         return results
 
 
-    def get_client_locations(self, client_id: int) -> List[Dict]:
+    def get_client_locations(self, identifiant : tuple[str,str] , client_id: int) -> List[Dict]:
         """Récupère les locations d'un client"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         cursor.execute("""
             SELECT l.*, b.Libelle as broom_name, b.id_balai
@@ -845,9 +850,9 @@ class DAOMySQL:
         return results
 
 
-    def get_vendeur_locations(self, vendeur_id: int) -> List[Dict]:
+    def get_vendeur_locations(self, identifiant : tuple[str,str] , vendeur_id: int) -> List[Dict]:
         """Récupère les locations gérées par un vendeur"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         cursor.execute("""
             SELECT l.*, c.id_client, cl.name as client_name, cl.surname as client_surname,
@@ -867,9 +872,9 @@ class DAOMySQL:
         return results
 
 
-    def check_broom_availability(self, broom_id: int, start_date: str, end_date: str) -> tuple:
+    def check_broom_availability(self, identifiant : tuple[str,str] , broom_id: int, start_date: str, end_date: str) -> tuple:
         """Vérifie la disponibilité d'un balai pour une période donnée"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         
         cursor.execute("""
@@ -891,9 +896,9 @@ class DAOMySQL:
         return True, None
 
 
-    def add_location(self, client_id: int, employee_id: int, location: Reservation) -> bool:
+    def add_location(self, identifiant : tuple[str,str] , client_id: int, employee_id: int, location: Reservation) -> bool:
         """Ajoute une nouvelle location"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor()
         try:
             # Créer la COMMANDE
@@ -927,9 +932,9 @@ class DAOMySQL:
 
     # --- Méthodes pour les retours de location ---
 
-    def validate_location_return(self, commande_id: int, actual_end_date: str) -> bool:
+    def validate_location_return(self, identifiant : tuple[str,str] , commande_id: int, actual_end_date: str) -> bool:
         """Valide le retour d'un balai en location et débite le client"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor()
         try:
             # Vérifier que la location existe et récupérer les infos
@@ -1040,9 +1045,9 @@ class DAOMySQL:
             conn.close()
 
 
-    def delete_location(self, location_id: int) -> bool:
+    def delete_location(self, identifiant : tuple[str,str] , location_id: int) -> bool:
         """Supprime une location"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor()
         try:
             # Récupérer le balai associé
@@ -1074,9 +1079,9 @@ class DAOMySQL:
 
     # --- Méthodes pour les ventes (VENTES) ---
 
-    def get_vente_by_id(self, vente_id: int) -> Optional[Dict]:
+    def get_vente_by_id(self, identifiant : tuple[str,str] , vente_id: int) -> Optional[Dict]:
         """Récupère une vente par son ID"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         
         cursor.execute("""
@@ -1092,9 +1097,9 @@ class DAOMySQL:
         return result if result else None
 
 
-    def get_vente_detail(self, commande_id: int, client_id: int) -> Optional[Dict]:
+    def get_vente_detail(self, identifiant : tuple[str,str] , commande_id: int, client_id: int) -> Optional[Dict]:
         """Récupère les détails d'une commande client"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         
         cursor.execute("""
@@ -1134,9 +1139,9 @@ class DAOMySQL:
         return result if result else None
 
 
-    def get_all_ventes(self) -> List[Dict]:
+    def get_all_ventes(self, identifiant : tuple[str,str]) -> List[Dict]:
         """Récupère toutes les ventes avec calcul du montant total"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         
         cursor.execute("""
@@ -1179,9 +1184,9 @@ class DAOMySQL:
         return results
 
 
-    def get_client_ventes(self, client_id: int) -> List[Dict]:
+    def get_client_ventes(self, identifiant : tuple[str,str] , client_id: int) -> List[Dict]:
         """Récupère les ventes d'un client"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         cursor.execute("""
             SELECT c.*, v.sale_date, b.Libelle as broom_name, b.sale_price
@@ -1198,9 +1203,9 @@ class DAOMySQL:
         return results
 
 
-    def get_vendeur_ventes(self, vendeur_id: int) -> List[Dict]:
+    def get_vendeur_ventes(self, identifiant : tuple[str,str] , vendeur_id: int) -> List[Dict]:
         """Récupère les ventes gérées par un vendeur"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         cursor.execute("""
             SELECT v.*, c.id_client, cl.name as client_name, cl.surname as client_surname,
@@ -1222,9 +1227,9 @@ class DAOMySQL:
         return results
 
 
-    def add_vente(self, employee_id: int, client_id: int, broom_ids: int) -> bool:
+    def add_vente(self, identifiant : tuple[str,str] , employee_id: int, client_id: int, broom_ids: int) -> bool:
         """Ajoute une nouvelle vente"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         try:
             sale_price = 0
@@ -1290,9 +1295,9 @@ class DAOMySQL:
             conn.close()
 
 
-    def delete_vente(self, vente_id: int) -> bool:
+    def delete_vente(self, identifiant : tuple[str,str] , vente_id: int) -> bool:
         """Supprime une vente et restaure les balais associés"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         try:
 
@@ -1378,9 +1383,9 @@ class DAOMySQL:
 
     # --- Méthodes pour les Fabricants ---
 
-    def get_all_fabricants(self) -> List[Dict]:
+    def get_all_fabricants(self, identifiant : tuple[str,str]) -> List[Dict]:
         """Récupère tous les fabricants/fournisseurs"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         cursor.execute("SELECT id_fabricant, name, Mail FROM FABRICANT")
         results = cursor.fetchall()
@@ -1389,9 +1394,9 @@ class DAOMySQL:
         return results
 
 
-    def get_fabricant_by_id(self, fabricant_id: int) -> Optional[Dict]:
+    def get_fabricant_by_id(self, identifiant : tuple[str,str] , fabricant_id: int) -> Optional[Dict]:
         """Récupère un fabricant par son ID"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         cursor.execute("SELECT id_fabricant, name, Mail FROM FABRICANT WHERE id_fabricant = %s", (fabricant_id,))
         result = cursor.fetchone()
@@ -1401,9 +1406,9 @@ class DAOMySQL:
 
     # --- Méthodes pour les COMMANDES FOURNISSEUR ---
 
-    def create_commande_fournisseur(self, commande_data: dict) -> bool:
+    def create_commande_fournisseur(self, identifiant : tuple[str,str] , commande_data: dict) -> bool:
         """Crée une commande fournisseur"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor()
         try:
             # Récupérer l'ID d'un patron
@@ -1494,12 +1499,12 @@ class DAOMySQL:
             conn.close()
 
 
-    def get_vendeur_commandes_fournisseur(self, vendeur_id: int) -> List[Dict]:
+    def get_vendeur_commandes_fournisseur(self, identifiant : tuple[str,str] , vendeur_id: int) -> List[Dict]:
         """Récupère les commandes fournisseur d'un vendeur"""
-        if self.is_patron(vendeur_id):
-            return self.get_all_commandes_fournisseur()
+        if self.is_patron(identifiant, vendeur_id):
+            return self.get_all_commandes_fournisseur(identifiant)
         
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         
         cursor.execute("""
@@ -1542,9 +1547,9 @@ class DAOMySQL:
         return commandes
 
 
-    def get_all_commandes_fournisseur(self) -> List[Dict]:
+    def get_all_commandes_fournisseur(self , identifiant : tuple[str,str]) -> List[Dict]:
         """Récupère toutes les commandes fournisseurs avec calcul des dépenses"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         
         try:
@@ -1609,9 +1614,9 @@ class DAOMySQL:
             conn.close()
 
 
-    def get_pending_approvals(self) -> List[Dict]:
+    def get_pending_approvals(self, identifiant : tuple[str,str]) -> List[Dict]:
         """Récupère les commandes fournisseur en attente d'approbation"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         
         cursor.execute("""
@@ -1652,9 +1657,9 @@ class DAOMySQL:
         return commandes
 
 
-    def approve_commande_fournisseur(self, commande_id: int) -> bool:
+    def approve_commande_fournisseur(self, identifiant : tuple[str,str] , commande_id: int) -> bool:
         """Approuve une commande fournisseur"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor()
         try:
             cursor.execute("""
@@ -1673,13 +1678,13 @@ class DAOMySQL:
             conn.close()
 
 
-    def update_commande_fournisseur_status(self, commande_id: int, status: str) -> bool:
+    def update_commande_fournisseur_status(self, identifiant : tuple[str,str] , commande_id: int, status: str) -> bool:
         """Met à jour le statut d'une commande fournisseur"""
         allowed_statuses = ['Pending', 'Processing', 'In transit', 'Cancelled', 'Finished']
         if status not in allowed_statuses:
             return False
         
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor()
         try:
             cursor.execute("""
@@ -1698,9 +1703,9 @@ class DAOMySQL:
             conn.close()
 
 
-    def update_commande_fournisseur_delivery(self, commande_id: int, actual_delivery_date: str) -> bool:
+    def update_commande_fournisseur_delivery(self, identifiant : tuple[str,str] , commande_id: int, actual_delivery_date: str) -> bool:
         """Met à jour la date de livraison réelle et le statut"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor()
         try:
             cursor.execute("""
@@ -1728,9 +1733,9 @@ class DAOMySQL:
 
     # --- Méthodes pour les statistiques ---
 
-    def get_vendeur_stats(self, vendeur_id: int) -> Dict:
+    def get_vendeur_stats(self, identifiant : tuple[str,str] , vendeur_id: int) -> Dict:
         """Récupère les statistiques d'un vendeur"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         
         stats = {}
@@ -1804,9 +1809,9 @@ class DAOMySQL:
         return stats
 
 
-    def get_ventes_by_period(self, vendeur_id: int, start_date: str, end_date: str) -> List[Dict]:
+    def get_ventes_by_period(self, identifiant : tuple[str,str] , vendeur_id: int, start_date: str, end_date: str) -> List[Dict]:
         """Récupère les ventes sur une période donnée"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         
         cursor.execute("""
@@ -1843,9 +1848,9 @@ class DAOMySQL:
         return ventes
 
 
-    def get_locations_by_status(self, vendeur_id: int, status: str = None) -> List[Dict]:
+    def get_locations_by_status(self, identifiant : tuple[str,str] , vendeur_id: int, status: str = None) -> List[Dict]:
         """Récupère les locations d'un vendeur, optionnellement filtrées par statut"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         
         query = """
@@ -1876,9 +1881,9 @@ class DAOMySQL:
         return results
 
 
-    def search_ventes(self, vendeur_id: int, search_term: str) -> List[Dict]:
+    def search_ventes(self, identifiant : tuple[str,str] , vendeur_id: int, search_term: str) -> List[Dict]:
         """Recherche des ventes par nom de client ou nom de balai"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         
         cursor.execute("""
@@ -1903,9 +1908,9 @@ class DAOMySQL:
         return results
 
 
-    def search_locations(self, vendeur_id: int, search_term: str) -> List[Dict]:
+    def search_locations(self, identifiant : tuple[str,str] , vendeur_id: int, search_term: str) -> List[Dict]:
         """Recherche des locations par nom de client ou nom de balai"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         
         cursor.execute("""
@@ -1930,9 +1935,9 @@ class DAOMySQL:
         return results
 
 
-    def get_stats(self) -> Dict:
+    def get_stats(self , identifiant : tuple[str, str] ) -> Dict:
         """Récupère les statistiques globales pour les administrateurs (depuis la première date disponible)"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
 
         # Trouver la première date disponible dans le système
@@ -1956,12 +1961,12 @@ class DAOMySQL:
         current_date = datetime.now().date()
 
         # Appeler get_stats_by_period avec la période complète
-        return self.get_stats_by_period(str(first_date), str(current_date))
+        return self.get_stats_by_period(identifiant, str(first_date), str(current_date))
 
 
-    def get_stats_by_period(self, start_date: str, end_date: str) -> Dict:
+    def get_stats_by_period(self, identifiant : tuple[str,str] , start_date: str, end_date: str) -> Dict:
         """Récupère les statistiques globales sur une période donnée"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
 
         stats = {}
@@ -2090,9 +2095,9 @@ class DAOMySQL:
         return stats
 
 
-    def get_ventes_by_date_range(self, start_date: str, end_date: str) -> List[Dict]:
+    def get_ventes_by_date_range(self, identifiant : tuple[str,str] , start_date: str, end_date: str) -> List[Dict]:
         """Récupère les ventes sur une période donnée - utiliser la vue"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         
         # Utiliser directement la vue
@@ -2111,9 +2116,9 @@ class DAOMySQL:
         return results
 
 
-    def get_locations_by_date_range(self, start_date: str, end_date: str) -> List[Dict]:
+    def get_locations_by_date_range(self, identifiant : tuple[str,str] , start_date: str, end_date: str) -> List[Dict]:
         """Récupère les locations sur une période donnée - utiliser la vue"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         
         cursor.execute("""
@@ -2147,9 +2152,9 @@ class DAOMySQL:
         return results
 
 
-    def get_commandes_fournisseur_by_date_range(self, start_date: str, end_date: str) -> List[Dict]:
+    def get_commandes_fournisseur_by_date_range(self, identifiant : tuple[str,str] , start_date: str, end_date: str) -> List[Dict]:
         """Récupère les commandes fournisseur - utiliser la vue"""
-        conn = self._get_connection()
+        conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         
         cursor.execute("""
@@ -2196,4 +2201,3 @@ class DAOMySQL:
         cursor.close()
         conn.close()
         return commandes
-
