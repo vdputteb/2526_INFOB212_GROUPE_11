@@ -13,7 +13,7 @@ export function AddVendeur() {
     const showBtn = document.getElementById('showAddVendeurBtn');
     const closeBtn = modal?.querySelector('.close-modal');
     const form = document.getElementById('addVendeurForm');
-    const vendeurTypeSelect = document.getElementById('newVendeurType');
+    const roleSelect = document.getElementById('newVendeurRole');
     
     if (!modal || !showBtn || !closeBtn || !form) return;
     
@@ -25,7 +25,7 @@ export function AddVendeur() {
             login: document.getElementById('newVendeurLogin'),
             password: document.getElementById('newVendeurpassword'),
             retryPassword: document.getElementById('RetryVendeurPassword'),
-            type: document.getElementById('newVendeurType'),
+            role: document.getElementById('newVendeurRole'),
             telephones: document.getElementById('newVendeurTelephones')
         };
     }
@@ -270,8 +270,8 @@ export function AddVendeur() {
         const formElem = document.getElementById('addVendeurForm');
         if (formElem) formElem.reset();
         
-        // Réinitialiser le type à la valeur par défaut
-        if (vendeurTypeSelect) vendeurTypeSelect.value = '0';
+        // Réinitialiser le rôle à la valeur par défaut
+        if (roleSelect) roleSelect.value = 'vendeur';
         
         clearAllErrors();
     }
@@ -328,7 +328,7 @@ export function AddVendeur() {
             surname: fields.prenom.value,
             mail: fields.email.value,
             phone: telephones,
-            is_admin: parseInt(fields.type.value) === 1,
+            role: fields.role.value,
             actif: true
         };
         

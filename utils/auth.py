@@ -2,6 +2,7 @@ from functools import wraps
 from os import getenv
 from dotenv import load_dotenv
 from fastapi import HTTPException, Request
+from fastapi.responses import RedirectResponse
 from BD.dao_mysql import DAOMySQL
 from utils.jwt_token import verify_token
 
@@ -12,12 +13,6 @@ dao = DAOMySQL(getenv("DB_HOST"),int(getenv("DB_PORT")),getenv("DB_USER"),getenv
 def require_role(allowed_roles: list):
     """
     Décorateur pour vérifier que l'utilisateur a un rôle autorisé
-    
-    Usage:
-        @app.get("/admin/dashboard")
-        @require_role(["patron"])
-        async def admin_dashboard(request: Request):
-            return {"message": "Welcome patron"}
     """
     def decorator(func):
         @wraps(func)
@@ -65,6 +60,7 @@ def require_role(allowed_roles: list):
             
             # Vérifier si le rôle est autorisé
             if user_role not in allowed_roles:
+                RedirectResponse("/auth")
                 raise HTTPException(
                     status_code=403, 
                     detail=f"Access denied. Insufficient permissions. "

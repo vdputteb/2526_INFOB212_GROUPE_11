@@ -94,6 +94,7 @@ class DAOMySQL:
 
 
     def connected(self , id_employee : Optional[int]):
+        """ Mets à jour la dernière connexion. Si dernière connexion > 30 min mets actif à 0"""
         conn = self._get_connection(None)
         cursor = conn.cursor()
         try:
@@ -145,7 +146,47 @@ class DAOMySQL:
             conn.close()
 
 
+    def grant(self, username : str , password : str, role : str):
+        conn = self._get_connection(None)
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE USER IF NOT EXISTS %s@'localhost'
+                IDENTIFIED BY %s 
+        """,(username, password ,))
+
+        cursor.execute("""
+            GRANT %s TO %s@'localhost'
+        """,(role, username,))
+
+        cursor.execute("""
+            SET DEFAULT ROLE %s FOR %s@'localhost'
+        """,(role, username,))
+
+        cursor.close()
+        conn.close()
+        return
+
+
+    def revoke(self, username: str, role : str):
+        conn = self._get_connection(None)
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            REVOKE %s FROM %s@'localhost'
+            """,(role, username,))
+
+        if role == "patron":
+            cursor.execute("""
+            REVOKE GRANT OPTION FROM %s@'localhost'
+            """,(username,))
+
+        cursor.close()
+        conn.close()
+        return
+
+
     def get_role(self, username : str) -> str:
+        """ Recupère le Role dans la bdd de l'employee """
         conn = self._get_connection(None)
         cursor = conn.cursor()
 
@@ -164,6 +205,7 @@ class DAOMySQL:
         cursor.close()
         conn.close()
         return role
+
 
     # --- Méthodes pour les EMPLOYES ---
 
@@ -219,20 +261,23 @@ class DAOMySQL:
             # Vérifier si l'email existe déjà
             if self.get_employee_by_email(identifiant, employee.mail):
                 return False
-            
+
             cursor.execute("""
                 INSERT INTO EMPLOYEE (login, password, actif, name, surname, 
                                     mail_pro, tel1, tel2, tel3, id_patron)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
-                employee.username, employee.password, 
-                1 if employee.actif else 0,
+                employee.username, employee.password,
+                0,
                 employee.name, employee.surname, employee.mail,
                 employee.phone[0] if len(employee.phone) > 0 else None,
                 employee.phone[1] if len(employee.phone) > 1 else None,
                 employee.phone[2] if len(employee.phone) > 2 else None,
-                employee.id_patron if not employee.is_admin else None
+                employee.id_patron if employee.role != "patron" else None
             ))
+
+            self.grant(employee.username, employee.password, employee.role)
+
             conn.commit()
             return True
         except Error as e:
@@ -244,14 +289,15 @@ class DAOMySQL:
             conn.close()
 
 
-    def get_all_vendeurs(self, identifiant : tuple[str,str] , id_patron: int) -> List[Dict]:
+    def get_all_vendeurs(self, identifiant : tuple[str,str]) -> List[Dict]:
         """Récupère tous les vendeurs (employés non patrons)"""
         conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         cursor.execute("""
-            SELECT id_employee, login, name, surname, mail_pro, tel1, tel2, tel3, actif
-            FROM EMPLOYEE WHERE id_patron = %s
-        """, (id_patron,))
+                SELECT id_employee, login, name, surname, mail_pro, tel1, tel2, tel3, actif,
+                    (CASE WHEN id_patron IS NULL THEN 'patron' ELSE 'vendeur' END) as role
+                FROM EMPLOYEE 
+                """,)
         results = cursor.fetchall()
         cursor.close()
         conn.close()
@@ -272,48 +318,41 @@ class DAOMySQL:
         return result if result else None
 
 
-    def modify_vendeur(self, identifiant : tuple[str,str] , vendeur: Employee) -> bool:
-        """Modifie un vendeur existant"""
-        conn = self._get_connection(identifiant)
-        cursor = conn.cursor()
-        try:
-            cursor.execute("""
-                UPDATE EMPLOYEE 
-                SET name = %s, surname = %s, mail_pro = %s, tel1 = %s, tel2 = %s, tel3 = %s, actif = %s
-                WHERE id_employee = %s AND id_patron IS NOT NULL
-            """, (
-                vendeur.name, vendeur.surname, vendeur.mail,
-                vendeur.phone[0] if len(vendeur.phone) > 0 else None,
-                vendeur.phone[1] if len(vendeur.phone) > 1 else None,
-                vendeur.phone[2] if len(vendeur.phone) > 2 else None,
-                1 if vendeur.actif else 0,
-                vendeur.id_employee
-            ))
-            conn.commit()
-            return cursor.rowcount > 0
-        except Error as e:
-            print(f"Erreur modification vendeur: {e}")
-            conn.rollback()
-            return False
-        finally:
-            cursor.close()
-            conn.close()
-
-
     def modify_vendeur_partial(self, identifiant : tuple[str,str] , vendeur_id: int, update_data: dict) -> bool:
         """Modifie partiellement un vendeur"""
         conn = self._get_connection(identifiant)
         cursor = conn.cursor()
         if not update_data:
             return True
-        
+
         set_clause = ", ".join([f"{key} = %s" for key in update_data.keys()])
         values = list(update_data.values()) + [vendeur_id]
-        
-        query = f"UPDATE EMPLOYEE SET {set_clause} WHERE id_employee = %s AND id_patron IS NOT NULL"
-        
+
+        query = f"UPDATE EMPLOYEE SET {set_clause} WHERE id_employee = %s"
+
         try:
             cursor.execute(query, values)
+
+            # Gestion des roles
+            if "role" in update_data and  update_data["role"] :
+
+                employee = self.get_vendeur_by_id(identifiant, vendeur_id)
+
+                current_role = self.get_role(employee.username)
+
+                if current_role != update_data['role'] :
+
+                    if update_data['role'] == "patron" :
+                        cursor.execute("""
+                        UPDATE EMPLOYEE
+                               SET id_patron = NULL
+                               WHERE id_employee = %s
+                        """, (vendeur_id,))
+
+                    self.revoke(employee.username, update_data['role'])
+
+                    self.grant(employee.username, employee.password, update_data["role"])
+
             conn.commit()
             return cursor.rowcount > 0
         except Error as e:
@@ -330,6 +369,16 @@ class DAOMySQL:
         conn = self._get_connection(identifiant)
         cursor = conn.cursor()
         try:
+            current_role = self.get_role(identifiant[0])
+            cursor.execute("""
+            REVOKE %s FROM %s@'localhost'
+            """,(current_role, identifiant[0],))
+
+            if current_role == "patron":
+                cursor.execute("""
+                REVOKE GRANT OPTION FROM %s@'localhost'
+                """,(identifiant[0],))
+
             cursor.execute("DELETE FROM EMPLOYEE WHERE id_employee = %s AND id_patron IS NOT NULL", (vendeur_id,))
             conn.commit()
             return cursor.rowcount > 0

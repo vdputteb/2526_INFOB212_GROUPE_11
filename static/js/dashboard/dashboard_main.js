@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const adminVue = document.getElementById("admin-vue");
     const vendeurVue = document.getElementById("vendeur-vue");
     
-    if (role && role.toLowerCase() === "admin") {
+    if (role && role.toLowerCase() === "patron") {
         if (adminVue) adminVue.style.display = "block";
         if (vendeurVue) vendeurVue.style.display = "block";
         loadVendeurs();

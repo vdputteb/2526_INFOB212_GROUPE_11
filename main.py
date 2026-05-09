@@ -210,6 +210,10 @@ async def register_employee(request: Request, employee: Employee):
     # Hasher le mot de passe
     hashed_password = bcrypt.hashpw(employee.password.encode('utf-8'), bcrypt.gensalt())
 
+    # Déterminer is_admin et id_patron en fonction du rôle
+    is_admin = (employee.role == "patron")
+    id_patron = request.state.user_id if not is_admin else None
+
     # Créer le nouvel employé
     new_employee = Employee(
         username=employee.username,
@@ -219,14 +223,15 @@ async def register_employee(request: Request, employee: Employee):
         surname=employee.surname,
         mail=employee.mail,
         phone=employee.phone,
-        is_admin=employee.is_admin,
-        id_patron=request.state.user_id if not employee.is_admin else None
+        is_admin=is_admin,
+        id_patron=id_patron,
+        role=employee.role
     )
-    
+
     success = dao.create_employee(request.state.identifiants, new_employee)
     if not success:
         raise HTTPException(status_code=500, detail="Error creating employee")
-    
+
     return {"message": "Registration successful", "username": employee.username}
 
 
@@ -449,7 +454,7 @@ async def delete_client(request: Request, client_id: int):
 @require_role(["patron"])
 async def get_vendeurs(request: Request):
     """Récupère tous les vendeurs"""
-    vendeurs = dao.get_all_vendeurs(request.state.identifiants, request.state.user_id)
+    vendeurs = dao.get_all_vendeurs(request.state.identifiants)
     if not vendeurs:
         return JSONResponse({"success": True, "vendeurs": []})
     
@@ -479,15 +484,15 @@ async def modify_vendeur(request: Request, vendeur_data: dict):
     vendeur_id = vendeur_data.get("id_employee")
     if not vendeur_id:
         raise HTTPException(status_code=400, detail="Vendeur ID required")
-    
+
     # Récupérer le vendeur existant
     existing_vendeur = dao.get_vendeur_by_id(request.state.identifiants, vendeur_id)
     if not existing_vendeur:
         raise HTTPException(status_code=404, detail="Vendeur not found")
-    
+
     # Mettre à jour uniquement les champs fournis
     update_data = {}
-    
+
     if "name" in vendeur_data:
         update_data["name"] = vendeur_data["name"]
     if "surname" in vendeur_data:
@@ -496,7 +501,7 @@ async def modify_vendeur(request: Request, vendeur_data: dict):
         update_data["mail_pro"] = vendeur_data["mail"]
     if "username" in vendeur_data:
         update_data["login"] = vendeur_data["username"]
-    
+
     # Téléphones
     if "phone" in vendeur_data:
         phones = vendeur_data["phone"]
@@ -506,15 +511,20 @@ async def modify_vendeur(request: Request, vendeur_data: dict):
         for i, phone in enumerate(phones[:3], 1):
             if phone and phone.strip():
                 update_data[f"tel{i}"] = phone.strip()
-    
+
     # Mot de passe (optionnel)
     if "password" in vendeur_data and vendeur_data["password"]:
         hashed_password = bcrypt.hashpw(vendeur_data["password"].encode('utf-8'), bcrypt.gensalt())
         update_data["password"] = hashed_password.decode('utf-8')
-    
+
+    #Role
+    if "role" in vendeur_data and vendeur_data["role"]:
+        update_data["role"] = vendeur_data["role"]
+
+
     if not update_data:
         return JSONResponse({"success": True, "message": "No changes to apply"})
-    
+
     success = dao.modify_vendeur_partial(request.state.identifiants, vendeur_id, update_data)
     if success:
         return JSONResponse({"success": True, "message": "Vendeur modified successfully"})

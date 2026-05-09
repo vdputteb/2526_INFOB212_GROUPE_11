@@ -35,7 +35,7 @@ export function setupModifyVendeur() {
             prenom: document.getElementById('modifyVendeurPrenom'),
             email: document.getElementById('modifyVendeurMail'),
             login: document.getElementById('modifyVendeurLogin'),
-            type: document.getElementById('modifyVendeurType'),
+            role: document.getElementById('modifyVendeurRole'),
             telephones: document.getElementById('modifyVendeurTelephones'),
             password: document.getElementById('modifyVendeurPassword'),
             retryPassword: document.getElementById('modifyRetryVendeurPassword')
@@ -243,7 +243,16 @@ export function setupModifyVendeur() {
                 if (fields.prenom) fields.prenom.value = vendeur.surname || '';
                 if (fields.email) fields.email.value = vendeur.mail_pro || '';
                 if (fields.login) fields.login.value = vendeur.login || '';
-                if (fields.type) fields.type.value = vendeur.is_patron === '1' ? '1' : '0';
+                
+                // Récupérer le rôle
+                if (fields.role) {
+                    if (vendeur.role) {
+                        fields.role.value = vendeur.role;
+                    } else {
+                        // Déterminer le rôle basé sur id_patron (compatibilité ascendante)
+                        fields.role.value = vendeur.id_patron === null ? 'patron' : 'vendeur';
+                    }
+                }
                 
                 // Récupérer les téléphones
                 const phones = [vendeur.tel1, vendeur.tel2, vendeur.tel3].filter(t => t && t.trim());
@@ -381,7 +390,7 @@ export function setupModifyVendeur() {
             surname: fields.prenom.value,
             mail: fields.email.value,
             phone: telephones,
-            is_admin: parseInt(fields.type.value) === 1,
+            role: fields.role.value,
         };
         
         // Ajouter le mot de passe seulement s'il a été modifié

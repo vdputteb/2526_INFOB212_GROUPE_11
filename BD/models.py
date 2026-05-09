@@ -38,6 +38,7 @@ class Employee(BaseModel):
     phone: List[str] = Field(default_factory=list)  # tel1, tel2, tel3
     is_admin: bool = False  # is_patron
     id_patron: Optional[int] = None  # id_admin
+    role: str = "vendeur"  # "vendeur", "patron", "comptable"
 
 # --- Modèles pour les CLIENTS (Sorciers et Moldus) ---
 
