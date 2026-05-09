@@ -1580,6 +1580,13 @@ async function loadStats() {
     const periodSelect = document.getElementById('period-select');
     const period = periodSelect ? periodSelect.value : 'all';
 
+    const role = sessionStorage.getItem("role");
+
+    if (role === 'comptable'){
+        document.getElementById("profil-link").style.display = 'None';
+        document.getElementById("navigation-rapide").style.display = 'None';
+    }
+
     let url = '/api/admin/stats';
     const params = new URLSearchParams();
     

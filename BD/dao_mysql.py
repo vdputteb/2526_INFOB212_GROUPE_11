@@ -1,4 +1,6 @@
+from os import getenv
 from decimal import Decimal
+import re
 import pymysql
 from pymysql import Error
 from typing import Any, Optional, Dict, List
@@ -16,7 +18,6 @@ class DAOMySQL:
         self.user = user
         self.password = password
         self.database = database
-        self.init_database()
 
 
     def _get_connection(self, identifiant : Optional[tuple[str,str]]):
@@ -40,45 +41,8 @@ class DAOMySQL:
             return conn
         except pymysql.Error as e:
             print(f"Erreur de connexion MySQL: {e}")
-            print(f"Tentative de connexion à {self.host}:{self.port} avec l'utilisateur {self.user}")
+            print(f"Tentative de connexion à {self.host}:{self.port} avec l'utilisateur {user}")
             raise
-
-
-    def init_database(self):
-        """Initialise la base de données avec le schéma fourni (adapté MySQL)"""
-        try:
-            # Connexion sans base de données pour la créer si nécessaire
-            conn = pymysql.connect(
-                host=self.host,
-                port=self.port,
-                user=self.user,
-                password=self.password,
-                autocommit=True
-            )
-            cursor = conn.cursor()
-            
-            # Créer la base de données si elle n'existe pas
-            cursor.execute(f"CREATE DATABASE IF NOT EXISTS {self.database}")
-            cursor.execute(f"USE {self.database}")
-            
-            # Lire et exécuter le schéma adapté pour MySQL
-            with open("BD/schema_mysql.sql", "r", encoding='utf-8') as f:
-                schema = f.read()
-            
-            # Exécuter chaque instruction séparément
-            for statement in schema.split(';'):
-                if statement.strip():
-                    try:
-                        cursor.execute(statement)
-                    except Error as e:
-                        print(f"Erreur exécution: {e}")
-                        print(f"Statement: {statement[:100]}...")
-            
-            cursor.close()
-            conn.close()
-            print("Base de données MySQL initialisée avec succès")
-        except Exception as e:
-            print(f"Erreur lors de l'initialisation: {e}")
 
 
     def iso_format(self, row : dict[str, Any]):
@@ -129,6 +93,33 @@ class DAOMySQL:
             conn.close()
 
 
+    def connected(self , id_employee : Optional[int]):
+        conn = self._get_connection(None)
+        cursor = conn.cursor()
+        try:
+            if id_employee :
+                cursor.execute("""
+                    UPDATE EMPLOYEE
+                    SET last_login = %s
+                    WHERE id_employee = %s
+                """, (datetime.now().isoformat(), id_employee,))
+            else :
+                cursor.execute("""
+                    UPDATE EMPLOYEE 
+                    SET actif = 0 
+                    WHERE TIMESTAMPDIFF(MINUTE, last_login, NOW()) > %s;
+                    """,(getenv("ACCESS_TOKEN_EXPIRE_MINUTES")))
+            conn.commit()
+            return cursor.rowcount > 0
+        except Error as e:
+            print(f"Connected error for employee {id_employee}: {e}")
+            conn.rollback()
+            return False
+        finally:
+            cursor.close()
+            conn.close()
+
+
     def logout(self, id_employee: int) -> bool:
         """Déconnecte un employé"""
         conn = self._get_connection(None)
@@ -154,8 +145,25 @@ class DAOMySQL:
             conn.close()
 
 
-    def get_role(self, identifiant : tuple[str,str]) -> str:
-        return ""
+    def get_role(self, username : str) -> str:
+        conn = self._get_connection(None)
+        cursor = conn.cursor()
+
+        cursor.execute("SHOW GRANTS FOR %s@localhost ;",(username,))
+
+        grants = cursor.fetchall()
+        roles = []
+        for grant in grants:
+            grant_text = grant[0]
+            match = re.search(r"GRANT\s+`(\w+)`\s+TO", grant_text)
+            if match:
+                roles.append(match.group(1))
+
+        role = roles[0] if roles else None
+
+        cursor.close()
+        conn.close()
+        return role
 
     # --- Méthodes pour les EMPLOYES ---
 
@@ -1501,7 +1509,7 @@ class DAOMySQL:
 
     def get_vendeur_commandes_fournisseur(self, identifiant : tuple[str,str] , vendeur_id: int) -> List[Dict]:
         """Récupère les commandes fournisseur d'un vendeur"""
-        if self.is_patron(identifiant, vendeur_id):
+        if self.get_role(identifiant[0]) == 'patron':
             return self.get_all_commandes_fournisseur(identifiant)
         
         conn = self._get_connection(identifiant)

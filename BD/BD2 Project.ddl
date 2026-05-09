@@ -31,7 +31,7 @@ create table if not exists EMPLOYEE (
      name varchar(120) not null,
      surname varchar(120) not null,
      mail_pro varchar(120) not null,
-     last_login date,
+     last_login TIMESTAMP,
      tel1 varchar(16) not null,
      tel2 varchar(16),
      tel3 varchar(16),

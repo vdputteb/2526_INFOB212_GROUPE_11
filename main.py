@@ -45,6 +45,8 @@ async def auth_middleware(request: Request, call_next):
     request.state.user_id = None
     request.state.identifiants = (None, None)
 
+    dao.connected(request.state.user_id)
+
     # Routes publiques ou fichiers statiques
     if request.url.path in public_routes or request.url.path.startswith("/static"):
         return await call_next(request)
@@ -64,6 +66,8 @@ async def auth_middleware(request: Request, call_next):
     request.state.identifiants = ( str(payload.get("username")) , str(payload.get("password")))
     request.state.user_role = "admin" if payload.get("admin") else "vendeur"
     request.state.user_id = payload.get("user_id")
+
+    dao.connected(request.state.user_id)
 
     try:
         response = await call_next(request)
@@ -104,6 +108,7 @@ async def authentification(request: Request):
 
 
 @app.get("/dashboard")
+@require_role(["patron" , "vendeur"])
 async def dashboard(request: Request):
     # Vérifier si l'utilisateur est admin
     is_admin = request.state.user_role == "admin"
@@ -115,6 +120,7 @@ async def dashboard(request: Request):
 
 
 @app.get("/shop")
+@require_role(["patron" , "vendeur"])
 async def shop(request: Request):
     client_id = request.cookies.get("clientID")
     client = None
@@ -135,6 +141,7 @@ async def shop(request: Request):
 
 
 @app.get("/basket")
+@require_role(["patron" , "vendeur"])
 async def basket(request: Request):
     client_id = request.cookies.get("clientID")
     client = None
@@ -149,6 +156,7 @@ async def basket(request: Request):
 
 
 @app.get("/profile")
+@require_role(["patron" , "vendeur"])
 async def profile(request: Request):
     is_admin = request.state.user_role == "admin"
     return templates.TemplateResponse(
@@ -159,7 +167,7 @@ async def profile(request: Request):
 
 
 @app.get("/stats")
-@require_role(["admin"])
+@require_role(["patron" , "comptable"])
 async def stat(request: Request):
     return templates.TemplateResponse(
         request=request,
@@ -180,7 +188,7 @@ async def logout(request: Request):
 # --- API Register ---
 
 @app.post("/api/register/employee")
-@require_role(["admin"])
+@require_role(["patron"])
 async def register_employee(request: Request, employee: Employee):
     """
     Inscription d'un nouvel employé (admin uniquement)
@@ -223,6 +231,7 @@ async def register_employee(request: Request, employee: Employee):
 
 
 @app.post("/api/register/client")
+@require_role(["patron" , "vendeur"])
 async def register_client(request: Request, client_data: dict):
     """
     Inscription d'un nouveau client (sorcier ou moldu)
@@ -282,23 +291,23 @@ async def login(login_data: LoginRequest):
     employee = dao.get_employee_by_email((getenv("DB_USER"),getenv("DB_PASSWORD")), login_data.mail)
     if not employee:
         employee = dao.get_employee_by_login((getenv("DB_USER"),getenv("DB_PASSWORD")), login_data.username)
-    
+
     if not employee:
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    
+
     # Vérifier le mot de passe
     if not bcrypt.checkpw(login_data.password.encode('utf-8'), employee['password'].encode('utf-8')):
         raise HTTPException(status_code=401, detail="Incorrect Password")
-    
+
     # Vérifier si le compte est actif
     if employee['actif'] == '1':
         raise HTTPException(status_code=401, detail="You are already connected elsewhere")
-    
+
     dao.login(employee['id_employee'])
 
     # Vérifier si c'est un patron (admin)
     is_patron = employee['id_patron'] is None
-    
+
     # Créer le token JWT
     jwt_token = create_access_token(data={
         "username": employee['login'],
@@ -307,14 +316,14 @@ async def login(login_data: LoginRequest):
         "admin": is_patron,
         "password": employee['password']
     })
-    
+
     response = JSONResponse(content={
         "success": True,
         "message": "Login successful",
         "username": employee['login'],
-        "role": "admin" if is_patron else "vendeur"
+        "role": dao.get_role(employee["login"])
     })
-    
+
     response.set_cookie(
         key="userID",
         value=jwt_token,
@@ -324,13 +333,14 @@ async def login(login_data: LoginRequest):
         samesite="lax",
         path="/"
     )
-    
+
     return response
 
 
 # --- API Client ---
 
 @app.get("/api/clients")
+@require_role(["patron" , "vendeur"])
 async def get_clients(request: Request):
     """Récupère tous les clients"""
     clients = dao.get_all_clients(request.state.identifiants)
@@ -341,6 +351,7 @@ async def get_clients(request: Request):
 
 
 @app.post("/api/clients/select")
+@require_role(["patron" , "vendeur"])
 async def select_client(request : Request, select_data: SelectClientRequest):
     """Sélectionne un client pour la session"""
     client = dao.get_client_by_id(request.state.identifiants, select_data.client_id)
@@ -353,6 +364,7 @@ async def select_client(request : Request, select_data: SelectClientRequest):
 
 
 @app.put("/api/modify/client")
+@require_role(["patron" , "vendeur"])
 async def modify_client(request: Request, client_data: dict):
     """Modifie un client existant"""
     try:
@@ -408,6 +420,7 @@ async def modify_client(request: Request, client_data: dict):
 
 
 @app.delete("/api/delete/client/{client_id}")
+@require_role(["patron" , "vendeur"])
 async def delete_client(request: Request, client_id: int):
     """Supprime un client"""
     client = dao.get_client_by_id(request.state.identifiants,client_id)
@@ -433,7 +446,7 @@ async def delete_client(request: Request, client_id: int):
 # --- API Vendeur ---
 
 @app.get("/api/vendeurs")
-@require_role(["admin"])
+@require_role(["patron"])
 async def get_vendeurs(request: Request):
     """Récupère tous les vendeurs"""
     vendeurs = dao.get_all_vendeurs(request.state.identifiants, request.state.user_id)
@@ -444,7 +457,7 @@ async def get_vendeurs(request: Request):
 
 
 @app.post("/api/vendeurs/select")
-@require_role(["admin"])
+@require_role(["patron"])
 async def select_vendeur(request: Request, select_data: SelectVendeurRequest):
     """Sélectionne un vendeur pour la session"""
     vendeur = dao.get_vendeur_by_id(request.state.identifiants, select_data.vendeurs_id)
@@ -457,7 +470,7 @@ async def select_vendeur(request: Request, select_data: SelectVendeurRequest):
 
 
 @app.put("/api/modify/vendeur")
-@require_role(["admin"])
+@require_role(["patron"])
 async def modify_vendeur(request: Request, vendeur_data: dict):
     """
     Modifie un vendeur (le mot de passe est optionnel)
@@ -510,7 +523,7 @@ async def modify_vendeur(request: Request, vendeur_data: dict):
 
 
 @app.delete("/api/delete/vendeurs/{vendeurs_id}")
-@require_role(["admin"])
+@require_role(["patron"])
 async def delete_vendeur(request: Request, vendeurs_id: int):
     """Supprime un vendeur"""
     vendeur = dao.get_vendeur_by_id(request.state.identifiants, vendeurs_id)
@@ -535,6 +548,7 @@ async def delete_vendeur(request: Request, vendeurs_id: int):
 # --- API Balai ---
 
 @app.get("/api/catalogue")
+@require_role(["patron" , "vendeur"])
 async def get_catalogue(request: Request):
     """Récupère le catalogue des balais visibles par le client sélectionné"""
     client_id = request.cookies.get("clientID")
@@ -551,6 +565,7 @@ async def get_catalogue(request: Request):
 
 
 @app.get("/api/catalogue/{broom_id}")
+@require_role(["patron" , "vendeur"])
 async def get_broom(request: Request, broom_id: int):
     """Récupère les détails d'un balai spécifique"""
     broom = dao.get_broom_by_id(request.state.identifiants, broom_id)
@@ -560,6 +575,7 @@ async def get_broom(request: Request, broom_id: int):
 
 
 @app.get("/api/balais/all")
+@require_role(["patron" , "vendeur"])
 async def get_all_brooms(request: Request):
     """Récupère tous les balais (pour le formulaire de commande fournisseur)"""
     brooms = dao.get_all_brooms(request.state.identifiants)
@@ -567,6 +583,7 @@ async def get_all_brooms(request: Request):
 
 
 @app.get("/api/balais/available")
+@require_role(["patron" , "vendeur"])
 async def get_available_brooms(request: Request):
     """Récupère tous les balais disponibles"""
     brooms = dao.get_available_brooms(request.state.identifiants)
@@ -576,13 +593,14 @@ async def get_available_brooms(request: Request):
 # --- API Location ---
 
 @app.get("/api/locations")
-@require_role(["admin"])
+@require_role(["patron"])
 async def get_locations(request: Request):
     """Récupère toutes les locations"""
     return JSONResponse(dao.get_all_locations(request.state.identifiants))
 
 
 @app.get("/api/locations/client")
+@require_role(["patron" , "vendeur"])
 async def get_locations_by_client(request: Request):
     """Récupère les locations du client sélectionné"""
     client_id = request.cookies.get("clientID")
@@ -594,6 +612,7 @@ async def get_locations_by_client(request: Request):
 
 
 @app.get("/api/locations/vendeur")
+@require_role(["patron" , "vendeur"])
 async def get_locations_by_vendeur(request: Request):
     """Récupère les locations gérées par le vendeur sélectionné"""
     vendeur_id = request.cookies.get("vendeurID")
@@ -605,6 +624,7 @@ async def get_locations_by_vendeur(request: Request):
 
 
 @app.get("/api/locations/check")
+@require_role(["patron" , "vendeur"])
 async def check_availability(request: Request, broom_id: int, start_date: str, end_date: str):
     """Vérifie la disponibilité d'un balai"""
     try:
@@ -624,6 +644,7 @@ async def check_availability(request: Request, broom_id: int, start_date: str, e
 
 
 @app.post("/api/locations/validate-return")
+@require_role(["patron" , "vendeur"])
 async def validate_return_location(request: Request, return_data: dict):
     """Valide le retour d'un balai en location"""
     commande_id = return_data.get("commandeId")
@@ -637,6 +658,7 @@ async def validate_return_location(request: Request, return_data: dict):
 
 
 @app.post("/api/locations")
+@require_role(["patron" , "vendeur"])
 async def create_reservation(request: Request, reservation: Location):
     """Crée une nouvelle location"""
     client_id = request.cookies.get("clientID")
@@ -660,6 +682,7 @@ async def create_reservation(request: Request, reservation: Location):
 
 
 @app.delete("/api/locations/{reservation_id}")
+@require_role(["patron" , "vendeur"])
 async def delete_reservation(request: Request, reservation_id: int):
     """Annule une location"""
     deleted = dao.delete_location(request.state.identifiants, reservation_id)
@@ -671,13 +694,14 @@ async def delete_reservation(request: Request, reservation_id: int):
 # --- API Vente ---
 
 @app.get("/api/ventes")
-@require_role(["admin"])
+@require_role(["patron"])
 async def get_all_ventes(request: Request):
     """Récupère toutes les ventes"""
     return JSONResponse(dao.get_all_ventes(request.state.identifiants))
 
 
 @app.get("/api/ventes/client")
+@require_role(["patron" , "vendeur"])
 async def get_ventes_client(request: Request):
     """Récupère les ventes du client sélectionné"""
     client_id = request.cookies.get("clientID")
@@ -689,6 +713,7 @@ async def get_ventes_client(request: Request):
 
 
 @app.get("/api/ventes/vendeur")
+@require_role(["patron" , "vendeur"])
 async def get_ventes_vendeur(request: Request):
     """Récupère les ventes gérées par le vendeur sélectionné"""
     vendeur_id = request.cookies.get("vendeurID")
@@ -700,6 +725,7 @@ async def get_ventes_vendeur(request: Request):
 
 
 @app.get("/api/ventes/client/detail/{commande_id}")
+@require_role(["patron" , "vendeur"])
 async def get_vente_detail(request: Request, commande_id: int):
     """Récupère les détails d'une commande client"""
     client_id = request.cookies.get("clientID")
@@ -715,6 +741,7 @@ async def get_vente_detail(request: Request, commande_id: int):
 
 
 @app.post("/api/ventes")
+@require_role(["patron" , "vendeur"])
 async def create_commande(request: Request, commande_data: CreateCommandeRequest):
     """Crée une nouvelle commande d'achat"""
     client_id = request.cookies.get("clientID")
@@ -738,6 +765,7 @@ async def create_commande(request: Request, commande_data: CreateCommandeRequest
 
 
 @app.delete("/api/ventes/{vente_id}")
+@require_role(["patron" , "vendeur"])
 async def delete_vente(request: Request, vente_id: int):
     """Supprime une vente et rembourse le client"""
     # Vérifier si la vente existe
@@ -755,6 +783,7 @@ async def delete_vente(request: Request, vente_id: int):
 # --- API Profil ---
 
 @app.get("/api/me")
+@require_role(["patron" , "vendeur"])
 async def get_current_user(request: Request):
     """Récupère les informations de l'utilisateur connecté"""
     employee = dao.get_vendeur_by_id(request.state.identifiants, request.state.user_id)
@@ -778,6 +807,7 @@ async def get_current_user(request: Request):
 
 
 @app.get("/api/profile/ventes")
+@require_role(["patron" , "vendeur"])
 async def get_profile_ventes(request: Request, page: int = 1, per_page: int = 10):
     """Récupère les ventes de l'utilisateur connecté"""
     ventes = dao.get_vendeur_ventes(request.state.identifiants, request.state.user_id)
@@ -800,6 +830,7 @@ async def get_profile_ventes(request: Request, page: int = 1, per_page: int = 10
 
 
 @app.get("/api/profile/locations")
+@require_role(["patron" , "vendeur"])
 async def get_profile_locations(request: Request, page: int = 1, per_page: int = 10):
     """Récupère les locations gérées par l'utilisateur"""
     locations = dao.get_vendeur_locations(request.state.identifiants, request.state.user_id)
@@ -823,6 +854,7 @@ async def get_profile_locations(request: Request, page: int = 1, per_page: int =
 # --- API Commande Fournisseur ---
 
 @app.get("/api/fournisseurs")
+@require_role(["patron" , "vendeur"])
 async def get_fournisseurs(request: Request):
     """Récupère la liste des fournisseurs"""
     fournisseurs = dao.get_all_fabricants(request.state.identifiants)
@@ -830,6 +862,7 @@ async def get_fournisseurs(request: Request):
 
 
 @app.post("/api/commandes-fournisseur")
+@require_role(["patron" , "vendeur"])
 async def create_commande_fournisseur(request: Request, commande_data: dict):
     """Crée une commande fournisseur"""
     data = {
@@ -856,6 +889,7 @@ async def create_commande_fournisseur(request: Request, commande_data: dict):
 
 
 @app.get("/api/profile/commandes-fournisseur")
+@require_role(["patron" , "vendeur"])
 async def get_profile_commandes_fournisseur(request: Request, page: int = 1, per_page: int = 10):
     """Récupère les commandes fournisseur de l'utilisateur"""
     commandes = dao.get_vendeur_commandes_fournisseur(request.state.identifiants, request.state.user_id)
@@ -877,7 +911,7 @@ async def get_profile_commandes_fournisseur(request: Request, page: int = 1, per
 
 
 @app.get("/api/profile/pending-approvals")
-@require_role(["admin"])
+@require_role(["patron"])
 async def get_pending_approvals(request: Request):
     """Récupère les commandes fournisseur en attente d'approbation (admin uniquement)"""
     commandes = dao.get_pending_approvals(request.state.identifiants)
@@ -885,7 +919,7 @@ async def get_pending_approvals(request: Request):
 
 
 @app.put("/api/commandes-fournisseur/approve")
-@require_role(["admin"])
+@require_role(["patron"])
 async def approve_commande_fournisseur(request: Request):
     """Approuve ou modifie le statut d'une commande fournisseur (admin uniquement)"""
     approve_data = await request.json()
@@ -906,6 +940,7 @@ async def approve_commande_fournisseur(request: Request):
 # --- API Stats ---
 
 @app.get("/api/profile/stats")
+@require_role(["patron" , "vendeur"])
 async def get_profile_stats(request: Request):
     """Récupère les statistiques de l'utilisateur"""
     stats = dao.get_vendeur_stats(request.state.identifiants, request.state.user_id)
@@ -913,7 +948,7 @@ async def get_profile_stats(request: Request):
 
 
 @app.get("/api/admin/stats")
-@require_role(["admin"])
+@require_role(["patron" , "comptable"])
 async def get_detailed_stats(request: Request, period: str = "all", start_date: str = None, end_date: str = None):
     """Récupère les statistiques détaillées pour l'administrateur"""
     # Gérer les périodes prédéfinies

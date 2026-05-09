@@ -18,6 +18,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Variable pour suivre la validité de l'email
     let isEmailValid = true;
 
+    if (sessionStorage.getItem("username") || sessionStorage.getItem("role")){
+        sessionStorage.clear("username");
+        sessionStorage.clear("role");
+        window.location.href ="/logout";
+    }
+
     document.getElementById("profil-link").style.display = "none";
     
     // Fonction pour supprimer un message d'erreur existant
@@ -147,17 +153,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const data = await response.json();
 
+            console.log(data)
+
             if (data.success) {
                 sessionStorage.setItem("username", data.username);
                 sessionStorage.setItem("role", data.role);
 
-                showModal('Login successful', 'Redirecting to the dashboard...');
+                let direction = "dashboard";
 
+                if (data.role === 'comptable'){
+                    direction = "stats";
+                }
+                showModal('Login successful', `Redirecting to the ${direction}...`);
+                
                 setTimeout(() => {
-                    window.location.href = "/dashboard";
+                    window.location.href = `/${direction}`;
                 }, 1500);
             } else {
-                showModal('Erreur', data.error || 'Identifiants invalides', true);
+                showModal('Identifiants invalides', data.detail, true );
             }
         } catch (error) {
             showModal('Erreur', 'Erreur de connexion au serveur', true);

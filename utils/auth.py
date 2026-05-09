@@ -15,9 +15,9 @@ def require_role(allowed_roles: list):
     
     Usage:
         @app.get("/admin/dashboard")
-        @require_role(["admin"])
+        @require_role(["patron"])
         async def admin_dashboard(request: Request):
-            return {"message": "Welcome admin"}
+            return {"message": "Welcome patron"}
     """
     def decorator(func):
         @wraps(func)
@@ -61,7 +61,7 @@ def require_role(allowed_roles: list):
                 )
             
             # Déterminer le rôle: admin si id_patron est NULL
-            user_role = "admin" if employee['id_patron'] is None else "vendeur"
+            user_role = dao.get_role(employee['login'])
             
             # Vérifier si le rôle est autorisé
             if user_role not in allowed_roles:
