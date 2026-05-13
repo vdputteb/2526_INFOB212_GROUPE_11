@@ -4,9 +4,9 @@ let currentClient = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     loadClientInfo();
+    displayClientInfo();
     renderBasket();
     setupEventListeners();
-    document.getElementById("Client-name").innerText = "Client : " + sessionStorage.getItem("ClientName")
 });
 
 function loadClientInfo() {
@@ -17,6 +17,34 @@ function loadClientInfo() {
         email: document.getElementById('clientEmail')?.value,
         adresse: document.getElementById('clientAdresse')?.value
     };
+}
+
+function displayClientInfo() {
+    // Afficher le nom du client
+    const clientName = sessionStorage.getItem("ClientName") || "Client";
+    const clientNameElement = document.getElementById('clientName');
+    if (clientNameElement) {
+        clientNameElement.textContent = clientName;
+    }
+    
+    // Afficher l'argent du client
+    const clientMoney = sessionStorage.getItem("ClientMoney");
+    const moneyElement = document.getElementById('clientMoney');
+    const moneyBox = document.querySelector('.client-money');
+    
+    if (clientMoney && !isNaN(parseFloat(clientMoney))) {
+        const amount = parseFloat(clientMoney).toFixed(2);
+        moneyElement.textContent = `${amount} €`;
+        
+        // Changer la couleur si solde bas
+        if (parseFloat(clientMoney) < 50) {
+            moneyBox.classList.add('insufficient');
+        } else {
+            moneyBox.classList.remove('insufficient');
+        }
+    } else {
+        moneyElement.textContent = '0,00 €';
+    }
 }
 
 function renderBasket() {
@@ -48,6 +76,35 @@ function renderBasket() {
     });
     
     updateTotalsDisplay();
+    checkSufficientFunds();
+}
+
+function checkSufficientFunds() {
+    const totals = BasketManager.calculateTotals();
+    const clientMoney = sessionStorage.getItem("ClientMoney");
+    const checkoutBtn = document.getElementById('checkoutBtn');
+    const moneyBox = document.querySelector('.client-money');
+    
+    if (clientMoney && !isNaN(parseFloat(clientMoney))) {
+        const currentMoney = parseFloat(clientMoney);
+        const totalAmount = totals.total;
+        
+        if (currentMoney < totalAmount && totals.total > 0) {
+            checkoutBtn.disabled = true;
+            checkoutBtn.textContent = '💰 Solde insuffisant';
+            checkoutBtn.style.backgroundColor = '#e74c3c';
+            if (moneyBox) moneyBox.classList.add('insufficient');
+        } else {
+            if (checkoutBtn.disabled === true && totals.total > 0) {
+                checkoutBtn.disabled = false;
+                checkoutBtn.textContent = 'Valider la commande';
+                checkoutBtn.style.backgroundColor = '#27ae60';
+            }
+            if (moneyBox && parseFloat(clientMoney) >= 50) {
+                moneyBox.classList.remove('insufficient');
+            }
+        }
+    }
 }
 
 function createBasketItemRow(item, index) {
@@ -266,10 +323,14 @@ async function checkout() {
     const items = BasketManager.getItems();
     if (!items.length) return;
     
-    // Sauvegarder le panier actuel en cas d'échec partiel
-    const originalItems = [...items];
+    const totals = BasketManager.calculateTotals();
+    const clientMoney = sessionStorage.getItem("ClientMoney");
     
-    // Séparer les achats et les locations
+    if (clientMoney && parseFloat(clientMoney) < totals.total) {
+        alert('💰 Solde insuffisant pour effectuer cette commande !');
+        return;
+    }
+    
     const buyItems = items.filter(item => item.type === 'buy');
     const rentItems = items.filter(item => item.type === 'rent');
     
@@ -278,48 +339,31 @@ async function checkout() {
     let buySuccess = false;
     let buyError = null;
     
-    // Désactiver le bouton pendant le traitement
     const checkoutBtn = document.getElementById('checkoutBtn');
     checkoutBtn.disabled = true;
     checkoutBtn.textContent = 'Traitement en cours...';
     
     try {
-        // 1. Traiter d'abord les locations
         for (const item of rentItems) {
             try {
-                const reservationData = {
-                    broomId: item.id,
-                    startDate: item.startDate,
-                    endDate: item.endDate
-                };
-                
                 const response = await fetch('/api/locations', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(reservationData)
+                    body: JSON.stringify({
+                        broomId: item.id,
+                        startDate: item.startDate,
+                        endDate: item.endDate
+                    })
                 });
                 
                 if (response.ok) {
-                    const result = await response.json();
-                    successfulRents.push({
-                        index: items.indexOf(item),
-                        item: item,
-                        result: result
-                    });
+                    successfulRents.push(item);
                 } else {
                     const error = await response.json();
-                    failedRents.push({
-                        index: items.indexOf(item),
-                        item: item,
-                        error: error.detail || 'Erreur lors de la réservation'
-                    });
+                    failedRents.push({ item, error: error.detail || 'Erreur lors de la réservation' });
                 }
             } catch (error) {
-                failedRents.push({
-                    index: items.indexOf(item),
-                    item: item,
-                    error: error.message
-                });
+                failedRents.push({ item, error: error.message });
             }
         }
         
@@ -342,10 +386,8 @@ async function checkout() {
                     body: JSON.stringify(commandeData)
                 });
                 
-                if (response.ok) {
-                    const result = await response.json();
-                    buySuccess = true;
-                } else {
+                buySuccess = response.ok;
+                if (!buySuccess) {
                     const error = await response.json();
                     buyError = error.detail || 'Erreur lors de la commande';
                 }
@@ -354,32 +396,26 @@ async function checkout() {
             }
         }
         
-        // 3. Afficher le résultat et nettoyer le panier
         if (failedRents.length === 0 && (buyItems.length === 0 || buySuccess)) {
+            const newBalance = parseFloat(clientMoney) - totals.total;
+            sessionStorage.setItem("ClientMoney", newBalance.toString());
+            displayClientInfo();
+            
             BasketManager.clear();
             renderBasket();
-            showSuccessConfirmation(successfulRents, buySuccess, buyItems);
+            showSuccessConfirmation(successfulRents, buySuccess, buyItems, newBalance);
         } else {
-            for (let i = successfulRents.length - 1; i >= 0; i--) {
-                const rent = successfulRents[i];
+            for (const rent of successfulRents) {
                 const currentItems = BasketManager.getItems();
-                const currentIndex = currentItems.findIndex(item => 
-                    item.id === rent.item.id && 
-                    item.type === 'rent' &&
-                    item.startDate === rent.item.startDate &&
-                    item.endDate === rent.item.endDate
+                const index = currentItems.findIndex(item => 
+                    item.id === rent.id && item.type === 'rent'
                 );
-                if (currentIndex !== -1) {
-                    BasketManager.removeItem(currentIndex);
-                }
+                if (index !== -1) BasketManager.removeItem(index);
             }
             
-            
             if (buySuccess && buyItems.length > 0) {
-                for (let i = buyItems.length - 1; i >= 0; i--) {
-                    const buyItem = buyItems[i];
+                for (const buyItem of buyItems) {
                     const currentItems = BasketManager.getItems();
-                    
                     const indicesToRemove = [];
                     currentItems.forEach((item, idx) => {
                         if (item.id === buyItem.id && item.type === 'buy') {
@@ -401,30 +437,30 @@ async function checkout() {
     }
 }
 
-function showSuccessConfirmation(successfulRents, buySuccess, buyItems) {
+function showSuccessConfirmation(successfulRents, buySuccess, buyItems, newBalance) {
     const modal = document.getElementById('confirmationModal');
     const message = document.getElementById('confirmationMessage');
     
-    let messageHtml = '<div class="confirmation-success">';
-    messageHtml += '<strong> Commande validée avec succès !</strong><br><br>';
+    let messageHtml = '<div style="text-align: left;">';
+    messageHtml += '<strong>Commande validée !</strong><br><br>';
     
     if (successfulRents.length > 0) {
-        messageHtml += '<strong>📍 Locations confirmées :</strong><br>';
+        messageHtml += '<strong>📍 Locations :</strong><br>';
         successfulRents.forEach(rent => {
-            const days = Math.ceil((new Date(rent.item.endDate) - new Date(rent.item.startDate)) / (1000 * 60 * 60 * 24));
-            messageHtml += `&nbsp;&nbsp;• ${rent.item.name} - Du ${rent.item.startDate} au ${rent.item.endDate} (${days} jours)<br>`;
+            messageHtml += `&nbsp;&nbsp;• ${rent.name}<br>`;
         });
         messageHtml += '<br>';
     }
     
     if (buySuccess && buyItems.length > 0) {
-        messageHtml += '<strong>🛒 Achats confirmés :</strong><br>';
+        messageHtml += '<strong>🛒 Achats :</strong><br>';
         buyItems.forEach(item => {
             messageHtml += `&nbsp;&nbsp;• ${item.name} x${item.quantity}<br>`;
         });
         messageHtml += '<br>';
     }
     
+    messageHtml += `<div class="balance-update">💰 Nouveau solde : ${newBalance.toFixed(2)} €</div>`;
     messageHtml += '</div>';
     
     message.innerHTML = messageHtml;
@@ -443,19 +479,19 @@ function showPartialConfirmation(successfulRents, failedRents, buySuccess, buyEr
     const modal = document.getElementById('confirmationModal');
     const message = document.getElementById('confirmationMessage');
     
-    let messageHtml = '<div class="confirmation-partial">';
+    let messageHtml = '<div style="text-align: left;">';
     messageHtml += '<strong>⚠️ Validation partielle</strong><br><br>';
     
     if (successfulRents.length > 0) {
-        messageHtml += '<strong style="color: green;"> Locations confirmées :</strong><br>';
+        messageHtml += '<strong style="color: green;">Locations confirmées :</strong><br>';
         successfulRents.forEach(rent => {
-            messageHtml += `&nbsp;&nbsp;• ${rent.item.name}<br>`;
+            messageHtml += `&nbsp;&nbsp;• ${rent.name}<br>`;
         });
         messageHtml += '<br>';
     }
     
     if (failedRents.length > 0) {
-        messageHtml += '<strong style="color: red;"> Locations échouées :</strong><br>';
+        messageHtml += '<strong style="color: red;">Locations échouées :</strong><br>';
         failedRents.forEach(rent => {
             messageHtml += `&nbsp;&nbsp;• ${rent.item.name} - ${rent.error}<br>`;
         });
@@ -463,18 +499,15 @@ function showPartialConfirmation(successfulRents, failedRents, buySuccess, buyEr
     }
     
     if (buySuccess) {
-        messageHtml += '<strong style="color: green;"> Achats confirmés :</strong><br>';
+        messageHtml += '<strong style="color: green;">Achats confirmés :</strong><br>';
         buyItems.forEach(item => {
             messageHtml += `&nbsp;&nbsp;• ${item.name} x${item.quantity}<br>`;
         });
-        messageHtml += '<br>';
     } else if (buyItems.length > 0) {
-        messageHtml += '<strong style="color: red;"> Échec des achats :</strong><br>';
-        messageHtml += `&nbsp;&nbsp;• ${buyError}<br><br>`;
+        messageHtml += '<strong style="color: red;">Échec des achats :</strong><br>';
+        messageHtml += `&nbsp;&nbsp;• ${buyError}<br>`;
     }
     
-    messageHtml += '<strong>Les éléments validés ont été retirés de votre panier.</strong><br>';
-    messageHtml += 'Veuillez corriger les erreurs pour les autres articles.';
     messageHtml += '</div>';
     
     message.innerHTML = messageHtml;

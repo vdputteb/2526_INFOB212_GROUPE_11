@@ -175,11 +175,6 @@ class DAOMySQL:
             REVOKE %s FROM %s@'localhost'
             """,(role, username,))
 
-        if role == "patron":
-            cursor.execute("""
-            REVOKE GRANT OPTION FROM %s@'localhost'
-            """,(username,))
-
         cursor.close()
         conn.close()
         return
@@ -1556,6 +1551,26 @@ class DAOMySQL:
             conn.close()
 
 
+    def get_commande_fournisseur_by_id(self, identifiant: tuple[str, str], commande_id: int) -> Optional[Dict]:
+        """Récupère une commande fournisseur par son ID"""
+        conn = self._get_connection(identifiant)
+        cursor = conn.cursor(pymysql.cursors.DictCursor)
+        
+        cursor.execute("""
+            SELECT id_commande, status, command_date, expected_delivery_date, actual_delivery_date
+            FROM COMMANDE_FOURNISSEUR
+            WHERE id_commande = %s
+        """, (commande_id,))
+        
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if result:
+            result = self.iso_format(result)
+        return result
+
+
     def get_vendeur_commandes_fournisseur(self, identifiant : tuple[str,str] , vendeur_id: int) -> List[Dict]:
         """Récupère les commandes fournisseur d'un vendeur"""
         if self.get_role(identifiant[0]) == 'patron':
@@ -1760,16 +1775,16 @@ class DAOMySQL:
             conn.close()
 
 
-    def update_commande_fournisseur_delivery(self, identifiant : tuple[str,str] , commande_id: int, actual_delivery_date: str) -> bool:
+    def update_commande_fournisseur_delivery(self, identifiant : tuple[str,str] , commande_id: int, ) -> bool:
         """Met à jour la date de livraison réelle et le statut"""
         conn = self._get_connection(identifiant)
         cursor = conn.cursor()
         try:
             cursor.execute("""
                 UPDATE COMMANDE_FOURNISSEUR 
-                SET actual_delivery_date = %s, status = 'In transit'
+                SET actual_delivery_date = %s, status = 'Finished'
                 WHERE id_commande = %s
-            """, (actual_delivery_date, commande_id))
+            """, (datetime.now().isoformat(), commande_id))
             
             # Mettre à jour le statut des balais concernés
             cursor.execute("""

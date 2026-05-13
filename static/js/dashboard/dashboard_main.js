@@ -140,6 +140,7 @@ async function selectClient(clientId) {
             currentClient = data.client;
             window.currentClient = currentClient;
             sessionStorage.setItem("ClientName",data.client["name"] + " " + data.client["surname"])
+            sessionStorage.setItem("ClientMoney",data.client["money"])
             displayClientInfo(currentClient);
             
             document.querySelectorAll('#clientList .card').forEach(card => {

@@ -194,13 +194,15 @@
 </div>
 
 <!-- Template pour une ligne de commande fournisseur -->
-<template id="broomOrderTemplate">
-    <div class="broom-order-row">
-        <select name="broomId[]" class="cfBroomSelect" required>
-            <option value="">Sélectionner un balai</option>
-        </select>
-        <input type="number" name="quantity[]" placeholder="Quantité" class="cfQuantity" min="1" value="1">
-        <button type="button" class="remove-broom-btn">🗑️</button>
+<template id="fournisseurTemplate">
+    <div class="fournisseur-card">
+        <div class="fournisseur-header">
+            <span class="fournisseur-id"></span>
+            <span class="fournisseur-status"></span>
+        </div>
+        <div class="fournisseur-dates"></div>
+        <div class="fournisseur-items"></div>
+        <div class="fournisseur-actions"></div>
     </div>
 </template>
 

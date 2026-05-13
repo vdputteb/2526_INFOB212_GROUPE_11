@@ -1,10 +1,11 @@
 import { apiRequest, showNotification, formatDate, formatCurrency, createElement, clearElement } from './profile_api.js';
 import { setupPagination } from './profile_ui.js';
-import { loadVentes, loadFournisseurCommandes, loadPendingApprovals, getVentesData } from './profil_ventes.js';
+import { loadVentes, loadFournisseurCommandes, loadPendingApprovals, getVentesData, updateCommandeStatus } from './profil_ventes.js';
 import { loadLocations, validateReturn, getLocationsData } from './profil_locations.js';
 
 let currentUser = null;
 let currentUserRole = null;
+let isCurrentUserAdmin = false;
 
 //  CHARGEMENT PROFIL UTILISATEUR 
 async function loadUserInfo() {
@@ -13,6 +14,7 @@ async function loadUserInfo() {
         if (response.success) {
             currentUser = response.user;
             currentUserRole = currentUser.is_admin ? 'admin' : 'vendeur';
+            isCurrentUserAdmin = currentUser.is_admin;
             
             const userFullName = document.getElementById('userFullName');
             const userLogin = document.getElementById('userLogin');
@@ -25,6 +27,12 @@ async function loadUserInfo() {
             if (userEmail) userEmail.textContent = currentUser.mail;
             if (userInitials) userInitials.textContent = `${currentUser.name[0]}${currentUser.surname[0]}`;
             if (userRoleBadge) userRoleBadge.textContent = currentUser.is_admin ? 'Administrateur' : 'Vendeur';
+            
+            // Afficher la section des commandes en attente uniquement pour les admins
+            const pendingSection = document.getElementById('pendingApprovalSection');
+            if (pendingSection) {
+                pendingSection.style.display = currentUser.is_admin ? 'block' : 'none';
+            }
         }
     } catch (error) {
         console.error('Erreur chargement profil:', error);
@@ -114,7 +122,7 @@ function filterBroemsBySupplier(supplierId) {
             option.value = b.id_balai;
             option.dataset.locationPrice = b.location_price;
             option.dataset.purchase_price = b.purchase_price;
-            option.dataset.salePrice = b.purchase_price + (0.2*b.purchase_price); // prix d'achat +20%
+            option.dataset.salePrice = b.purchase_price + (0.2 * b.purchase_price); // prix d'achat +20%
             select.appendChild(option);
         });
     });
@@ -265,10 +273,24 @@ function addBroomRow() {
 }
 
 //  RAFRAÎCHISSEMENT DONNÉES 
+async function refreshFournisseurCommandes() {
+    await loadFournisseurCommandes(1, updateCommandeStatusWrapper, isCurrentUserAdmin);
+}
+
+// Wrapper pour la mise à jour des statuts
+async function updateCommandeStatusWrapper(commandeId, newStatus) {
+    const success = await updateCommandeStatus(commandeId, newStatus);
+    if (success) {
+        await refreshFournisseurCommandes();
+        if (currentUserRole === 'admin') await loadPendingApprovals(openApproveModal, refreshAllData);
+    }
+    return success;
+}
+
 async function refreshAllData() {
     await loadVentes(1, openReturnModal);
     await loadLocations(1, openReturnModal);
-    await loadFournisseurCommandes(1, refreshAllData);
+    await loadFournisseurCommandes(1, updateCommandeStatusWrapper, isCurrentUserAdmin);
     
     showNotification('Données actualisées', 'success');
 }
@@ -316,27 +338,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupEventListeners();
     setupTabs();
     
+    // Exposer les fonctions pour les callbacks
+    window.refreshFournisseurCommandes = refreshFournisseurCommandes;
+    
     await loadVentes(1, openReturnModal);
     await loadLocations(1, openReturnModal);
-    await loadFournisseurCommandes(1, refreshAllData);
+    await loadFournisseurCommandes(1, updateCommandeStatusWrapper, isCurrentUserAdmin);
     
-    // Afficher la section d'approbation si admin
-    if (currentUserRole === 'admin') {
-        const pendingSection = document.getElementById('pendingApprovalSection');
-        if (pendingSection) pendingSection.style.display = 'block';
+    // Charger les commandes en attente d'approbation si admin
+    if (isCurrentUserAdmin) {
         await loadPendingApprovals(openApproveModal, refreshAllData);
-
-        const button = document.createElement('button');
-        button.className = 'tab-btn';
-        button.setAttribute('data-tab', 'fournisseur');
-        button.textContent = '📈 Statistiques';
-        button.addEventListener('click', () => {
-            window.location.href = '/stats';
-        });
-
-        const container = document.getElementById('profile-tabs');
-        if (container) {
-            container.appendChild(button);
-        }
     }
 });

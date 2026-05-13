@@ -12,6 +12,57 @@
     padding-left: 20px;
 }
 
+.client-info-box {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 10px;
+    padding: 15px 20px;
+    margin-bottom: 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.client-name {
+    font-size: 16px;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.client-name::before {
+    content: "👤 ";
+}
+
+.client-money {
+    background: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: 1px solid #27ae60;
+}
+
+.money-label {
+    color: #7f8c8d;
+    font-size: 14px;
+    margin-right: 8px;
+}
+
+.money-amount {
+    font-weight: bold;
+    color: #27ae60;
+    font-size: 18px;
+}
+
+/* Solde insuffisant */
+.client-money.insufficient {
+    border-color: #e74c3c;
+}
+
+.client-money.insufficient .money-amount {
+    color: #e74c3c;
+}
+
 .basket-content {
     display: grid;
     grid-template-columns: 1fr 380px;
@@ -444,6 +495,16 @@
     color: #666;
 }
 
+.balance-update {
+    background: #27ae60;
+    color: white;
+    padding: 10px;
+    border-radius: 8px;
+    margin-top: 15px;
+    font-weight: bold;
+    text-align: center;
+}
+
 /* Responsive */
 @media (max-width: 1000px) {
     .basket-content {
@@ -518,5 +579,10 @@
     
     .rental-container {
         min-width: auto;
+    }
+    
+    .client-info-box {
+        flex-direction: column;
+        align-items: flex-start;
     }
 }

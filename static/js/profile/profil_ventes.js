@@ -94,7 +94,7 @@ function groupVentesByCommande(ventes) {
         group.items.push({
             broom_name: vente.broom_name,
             quantity: 1,
-            sale_price : vente.sale_price,
+            sale_price: vente.sale_price,
             price: vente.total_amount / (group.items.length + 1) || vente.total_amount
         });
     });
@@ -102,34 +102,52 @@ function groupVentesByCommande(ventes) {
     return Array.from(grouped.values());
 }
 
-//  COMMANDES FOURNISSEUR 
-export async function loadFournisseurCommandes(page = 1, refreshCallback) {
+//  FONCTIONS POUR LES STATUTS DES COMMANDES FOURNISSEUR
+function getAvailableStatuses(currentStatus) {
+    const allStatuses = ['Pending', 'Processing', 'In transit', 'Finished', 'Cancelled'];
+    
+    if (currentStatus === 'Finished' || currentStatus === 'Cancelled') {
+        // Statuts terminaux - ne peuvent plus être modifiés
+        return [currentStatus];
+    }
+    
+    if (currentStatus === 'In transit') {
+        // "In transit" peut uniquement passer à "Finished"
+        return ['In transit', 'Finished'];
+    }
+    
+    // Autres statuts peuvent évoluer normalement
+    const currentIndex = allStatuses.indexOf(currentStatus);
+    return allStatuses.slice(0, currentIndex + 2);
+}
+
+//  MISE À JOUR DU STATUT D'UNE COMMANDE FOURNISSEUR
+export async function updateCommandeStatus(commandeId, newStatus) {
     try {
-        const response = await apiRequest(`/profile/commandes-fournisseur?page=${page}`, 'GET');
+        const response = await apiRequest('/commandes-fournisseur/status', 'PUT', {
+            commandeId: commandeId,
+            status: newStatus
+        });
         if (response.success) {
-            renderFournisseurCommandes(response.commandes, 'fournisseurList');
-            setupPagination('fournisseurPagination', response.pagination, (p) => loadFournisseurCommandes(p, refreshCallback));
+            showNotification(`Statut de la commande #${commandeId} mis à jour`, 'success');
+            return true;
         } else {
-            throw new Error('Erreur lors du chargement des commandes fournisseur');
+            throw new Error(response.message || 'Erreur lors de la mise à jour');
         }
     } catch (error) {
-        const container = document.getElementById('fournisseurList');
-        if (container) {
-            clearElement(container);
-            const errorDiv = createElement('div', 'error-message', 'Erreur lors du chargement des commandes fournisseur');
-            container.appendChild(errorDiv);
-        }
-        console.error(error);
+        showNotification(error.message || 'Erreur lors de la mise à jour du statut', 'error');
+        return false;
     }
 }
 
-function renderFournisseurCommandes(commandes, containerId) {
+//  RENDU DES COMMANDES FOURNISSEUR
+function renderFournisseurCommandes(commandes, containerId, isAdmin = false, onStatusChange) {
     const container = document.getElementById(containerId);
     if (!container) return;
     
     clearElement(container);
     
-    if (!commandes.length) {
+    if (!commandes || !commandes.length) {
         container.appendChild(createElement('div', 'empty-message', 'Aucune commande fournisseur trouvée'));
         return;
     }
@@ -138,7 +156,9 @@ function renderFournisseurCommandes(commandes, containerId) {
     
     commandes.forEach(cmd => {
         const clone = template.content.cloneNode(true);
-        clone.querySelector('.fournisseur-id').textContent = `Commande #${cmd.id_commande || cmd.id}`;
+        const commandeId = cmd.id_commande || cmd.id;
+        
+        clone.querySelector('.fournisseur-id').textContent = `Commande #${commandeId}`;
         
         const statusSpan = clone.querySelector('.fournisseur-status');
         statusSpan.textContent = getStatusText(cmd.status);
@@ -160,8 +180,62 @@ function renderFournisseurCommandes(commandes, containerId) {
             itemsDiv.appendChild(noItemsDiv);
         }
         
+        const actionsDiv = clone.querySelector('.fournisseur-actions');
+        
+        // Ajouter le sélecteur de statut si admin
+        if (isAdmin && onStatusChange) {
+            const statusSelect = createElement('select', 'status-select');
+            
+            // Options disponibles selon le statut actuel
+            const statusOptions = getAvailableStatuses(cmd.status);
+            statusOptions.forEach(opt => {
+                const option = createElement('option', '', getStatusText(opt));
+                option.value = opt;
+                if (opt === cmd.status) option.selected = true;
+                statusSelect.appendChild(option);
+            });
+            
+            const updateBtn = createElement('button', 'btn-update-status', 'Mettre à jour');
+            updateBtn.addEventListener('click', async () => {
+                const newStatus = statusSelect.value;
+                if (newStatus !== cmd.status) {
+                    const success = await onStatusChange(commandeId, newStatus);
+                    if (success) {
+                        // Rafraîchir la liste via le callback
+                        if (window.refreshFournisseurCommandes) {
+                            await window.refreshFournisseurCommandes();
+                        }
+                    }
+                }
+            });
+            
+            actionsDiv.appendChild(statusSelect);
+            actionsDiv.appendChild(updateBtn);
+        }
+        
         container.appendChild(clone);
     });
+}
+
+//  COMMANDES FOURNISSEUR 
+export async function loadFournisseurCommandes(page = 1, onStatusChange, isAdmin = false) {
+    try {
+        const response = await apiRequest(`/profile/commandes-fournisseur?page=${page}`, 'GET');
+        if (response.success) {
+            renderFournisseurCommandes(response.commandes, 'fournisseurList', isAdmin, onStatusChange);
+            setupPagination('fournisseurPagination', response.pagination, (p) => loadFournisseurCommandes(p, onStatusChange, isAdmin));
+        } else {
+            throw new Error('Erreur lors du chargement des commandes fournisseur');
+        }
+    } catch (error) {
+        const container = document.getElementById('fournisseurList');
+        if (container) {
+            clearElement(container);
+            const errorDiv = createElement('div', 'error-message', 'Erreur lors du chargement des commandes fournisseur');
+            container.appendChild(errorDiv);
+        }
+        console.error(error);
+    }
 }
 
 //  COMMANDES EN ATTENTE (ADMIN) 

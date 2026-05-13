@@ -167,7 +167,7 @@ async def profile(request: Request):
 
 
 @app.get("/stats")
-@require_role(["patron" , "comptable"])
+@require_role(["comptable"])
 async def stat(request: Request):
     return templates.TemplateResponse(
         request=request,
@@ -947,6 +947,45 @@ async def approve_commande_fournisseur(request: Request):
     return JSONResponse({"success": True, "message": "Commande mise à jour"})
 
 
+@app.put("/api/commandes-fournisseur/status")
+@require_role(["patron"])
+async def update_commande_fournisseur_status(request: Request):
+    """Met à jour le statut d'une commande fournisseur (admin uniquement)"""
+    data = await request.json()
+    commande_id = data.get("commandeId")
+    new_status = data.get("status")
+    
+    # Vérifier les autorisations de changement
+    allowed_statuses = ['Pending', 'Processing', 'In transit', 'Finished', 'Cancelled']
+    if new_status not in allowed_statuses:
+        raise HTTPException(status_code=400, detail="Statut invalide")
+    
+    # Récupérer le statut actuel
+    current_cmd = dao.get_commande_fournisseur_by_id(request.state.identifiants, commande_id)
+    if not current_cmd:
+        raise HTTPException(status_code=404, detail="Commande non trouvée")
+    
+    current_status = current_cmd['status']
+    
+    # Vérifier la règle: "In transit" ne peut passer qu'à "Finished"
+    if current_status == 'In transit' and new_status != 'Finished':
+        raise HTTPException(status_code=400, detail="Une commande 'In transit' ne peut être marquée que comme 'Finished'")
+    
+    # Vérifier que les statuts terminaux ne sont plus modifiables
+    if current_status in ['Finished', 'Cancelled']:
+        raise HTTPException(status_code=400, detail="Cette commande est déjà terminée ou annulée")
+    
+    # Si le nouveau statut est "Finished", mettre à jour la date de livraison et les balais
+    if new_status == 'Finished':
+        success = dao.update_commande_fournisseur_delivery(request.state.identifiants, commande_id)
+    else:
+        success = dao.update_commande_fournisseur_status(request.state.identifiants, commande_id, new_status)
+    
+    if not success:
+        raise HTTPException(status_code=500, detail="Erreur lors de la mise à jour du statut")
+    
+    return JSONResponse({"success": True, "message": f"Statut mis à jour: {new_status}"})
+
 # --- API Stats ---
 
 @app.get("/api/profile/stats")
@@ -958,7 +997,7 @@ async def get_profile_stats(request: Request):
 
 
 @app.get("/api/admin/stats")
-@require_role(["patron" , "comptable"])
+@require_role([ "comptable"])
 async def get_detailed_stats(request: Request, period: str = "all", start_date: str = None, end_date: str = None):
     """Récupère les statistiques détaillées pour l'administrateur"""
     # Gérer les périodes prédéfinies
