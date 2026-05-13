@@ -315,43 +315,59 @@ class DAOMySQL:
 
     def modify_vendeur_partial(self, identifiant : tuple[str,str] , vendeur_id: int, update_data: dict) -> bool:
         """Modifie partiellement un vendeur"""
+
         conn = self._get_connection(identifiant)
         cursor = conn.cursor()
         if not update_data:
             return True
 
-        set_clause = ", ".join([f"{key} = %s" for key in update_data.keys()])
-        values = list(update_data.values()) + [vendeur_id]
+        update_data_copy = update_data.copy()
+        role_value = update_data_copy.pop("role", None)
+        
+        # Construire le SET clause sans le role
+        set_clause = ", ".join([f"{key} = %s" for key in update_data_copy.keys()])
+        values = list(update_data_copy.values()) + [vendeur_id]
 
-        query = f"UPDATE EMPLOYEE SET {set_clause} WHERE id_employee = %s"
+        if set_clause:
+            query = f"UPDATE EMPLOYEE SET {set_clause} WHERE id_employee = %s"
+
+            try:
+                cursor.execute(query, values)
+            except Error as e:
+                print(f"Erreur modification vendeur: {e}")
+                conn.rollback()
+                cursor.close()
+                conn.close()
+                return False
+
+        if role_value: 
+            try:
+                employee = self.get_vendeur_by_id(identifiant, vendeur_id)
+                current_role = self.get_role(employee["login"])
+
+                if current_role != role_value:
+                    if role_value == "patron":
+                        cursor.execute("""
+                            UPDATE EMPLOYEE
+                            SET id_patron = NULL
+                            WHERE id_employee = %s
+                        """, (vendeur_id,))
+                    
+                    self.revoke(employee["login"], role_value)
+                    self.grant(employee["login"], employee["password"], role_value)
+
+            except Error as e:
+                print(f"Erreur gestion du rôle: {e}")
+                conn.rollback()
+                cursor.close()
+                conn.close()
+                return False
 
         try:
-            cursor.execute(query, values)
-
-            # Gestion des roles
-            if "role" in update_data and  update_data["role"] :
-
-                employee = self.get_vendeur_by_id(identifiant, vendeur_id)
-
-                current_role = self.get_role(employee.username)
-
-                if current_role != update_data['role'] :
-
-                    if update_data['role'] == "patron" :
-                        cursor.execute("""
-                        UPDATE EMPLOYEE
-                               SET id_patron = NULL
-                               WHERE id_employee = %s
-                        """, (vendeur_id,))
-
-                    self.revoke(employee.username, update_data['role'])
-
-                    self.grant(employee.username, employee.password, update_data["role"])
-
             conn.commit()
-            return cursor.rowcount > 0
+            return True
         except Error as e:
-            print(f"Erreur modification vendeur: {e}")
+            print(f"Erreur commit: {e}")
             conn.rollback()
             return False
         finally:
