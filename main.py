@@ -1037,6 +1037,7 @@ async def get_detailed_stats(request: Request, period: str = "all", start_date: 
 
 
 # --- Lancement ---
+
 if __name__ == "__main__":
     uvicorn.run(
         "main:app",
