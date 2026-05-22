@@ -27,7 +27,7 @@ class Employee(BaseModel):
     """
     Model of the EMPLOYEE table in the database.
     """
-    __tablename__ = "EMPLOYEE"
+    __tablename__ = "employee"
     id_employee: Optional[int] = None
     username: str  # login
     password: str
@@ -73,7 +73,7 @@ class Client(BaseModel):
     """
     Model of the CLIENT table in the database.
     """
-    __tablename__ = "CLIENT"
+    __tablename__ = "client"
     id_client: Optional[int] = None
     name: str
     surname: str
@@ -91,22 +91,15 @@ class Client(BaseModel):
 
 class Fabricant(BaseModel):
     """Modèle FABRICANT"""
-    __tablename__ = "FABRICANT"
+    __tablename__ = "fabricant"
     id_fabricant: Optional[int] = None
     name: str
     mail: str
 
 
-class Detail(BaseModel):
-    """Modèle DETAIL (prix unitaire)"""
-    __tablename__ = "DETAIL"
-    id_detail: Optional[int] = None
-    price: float = Field(ge=0)
-
-
 class BalaiMagique(BaseModel):
     """Modèle BALAI_MAGIQUE"""
-    __tablename__ = "BALAI_MAGIQUE"
+    __tablename__ = "balai_magique"
     id_balai: int
     flight_licence_required: int = Field(ge=1, le=5)
     speed: int = Field(gt=0)
@@ -152,7 +145,7 @@ class Reservation(BaseModel):
     """
     Model of the LOCATION table
     """
-    __tablename__ = "LOCATION"
+    __tablename__ = "location"
     id_commande: int
     begin_date: date
     end_date: date
@@ -171,7 +164,7 @@ class Vente(BaseModel):
     """
     Model of the VENTE table
     """
-    __tablename__ = "VENTE"
+    __tablename__ = "vente"
     id_commande: int
     sale_date: date
 
@@ -180,7 +173,7 @@ class Commande(BaseModel):
     """
     Model of the COMMANDE table
     """
-    __tablename__ = "COMMANDE"
+    __tablename__ = "commande"
     id_commande: Optional[int] = None
     id_employee: int
     id_client: int
@@ -201,7 +194,7 @@ class CommandeFournisseur(BaseModel):
     """
     Model of the COMMANDE_FOURNISSEUR table (commandes aux fabricants)
     """
-    __tablename__ = "COMMANDE_FOURNISSEUR"
+    __tablename__ = "commande_fournisseur"
     id_commande: Optional[int] = None
     status: CommandeFournisseurStatus = CommandeFournisseurStatus.PENDING
     command_date: Optional[date] = None

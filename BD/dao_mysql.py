@@ -60,7 +60,7 @@ class DAOMySQL:
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         cursor.execute("""
             SELECT id_patron IS NULL as is_patron
-            FROM EMPLOYEE WHERE id_employee = %s
+            FROM employee WHERE id_employee = %s
         """, (id_employee,))
         result = cursor.fetchone()
         cursor.close()
@@ -73,12 +73,12 @@ class DAOMySQL:
         conn = self._get_connection(None)
         cursor = conn.cursor()
         try:
-            cursor.execute("SELECT id_employee FROM EMPLOYEE WHERE id_employee = %s", (id_employee,))
+            cursor.execute("SELECT id_employee FROM employee WHERE id_employee = %s", (id_employee,))
             if not cursor.fetchone():
                 return False
             
             cursor.execute("""
-                UPDATE EMPLOYEE
+                UPDATE employee
                 SET actif = 1 , last_login = %s
                 WHERE id_employee = %s
             """, (datetime.now().isoformat(), id_employee,))
@@ -100,13 +100,13 @@ class DAOMySQL:
         try:
             if id_employee :
                 cursor.execute("""
-                    UPDATE EMPLOYEE
+                    UPDATE employee
                     SET last_login = %s
                     WHERE id_employee = %s
                 """, (datetime.now().isoformat(), id_employee,))
             else :
                 cursor.execute("""
-                    UPDATE EMPLOYEE 
+                    UPDATE employee 
                     SET actif = 0 
                     WHERE TIMESTAMPDIFF(MINUTE, last_login, NOW()) > %s;
                     """,(getenv("ACCESS_TOKEN_EXPIRE_MINUTES")))
@@ -126,12 +126,12 @@ class DAOMySQL:
         conn = self._get_connection(None)
         cursor = conn.cursor()
         try:
-            cursor.execute("SELECT id_employee FROM EMPLOYEE WHERE id_employee = %s", (id_employee,))
+            cursor.execute("SELECT id_employee FROM employee WHERE id_employee = %s", (id_employee,))
             if not cursor.fetchone():
                 return False
             
             cursor.execute("""
-                UPDATE EMPLOYEE
+                UPDATE employee
                 SET actif = 0 , last_login = %s
                 WHERE id_employee = %s
             """, (date.today().isoformat(), id_employee,))
@@ -150,17 +150,17 @@ class DAOMySQL:
         conn = self._get_connection(None)
         cursor = conn.cursor()
         cursor.execute("""
-            CREATE USER IF NOT EXISTS %s@'localhost'
+            CREATE USER IF NOT EXISTS %s@'%%'
                 IDENTIFIED BY %s 
         """,(username, password ,))
 
         cursor.execute("""
-            GRANT %s TO %s@'localhost'
+            GRANT %s TO %s@'%%'
         """,(role, username,))
 
         cursor.execute("""
-            SET DEFAULT ROLE %s FOR %s@'localhost'
-        """,(role, username,))
+            ALTER USER %s@'%%' DEFAULT ROLE %s ;
+        """,(username, role,))
 
         cursor.close()
         conn.close()
@@ -172,7 +172,7 @@ class DAOMySQL:
         cursor = conn.cursor()
 
         cursor.execute("""
-            REVOKE %s FROM %s@'localhost'
+            REVOKE %s FROM %s@'%%'
             """,(role, username,))
 
         cursor.close()
@@ -180,22 +180,21 @@ class DAOMySQL:
         return
 
 
-    def get_role(self, username : str) -> str:
-        """ Recupère le Role dans la bdd de l'employee """
+    def get_role(self, username: str) -> str:
+        """Récupère le Role dans la bdd de l'employee"""
         conn = self._get_connection(None)
         cursor = conn.cursor()
-
-        cursor.execute("SHOW GRANTS FOR %s@localhost ;",(username,))
-
-        grants = cursor.fetchall()
-        roles = []
-        for grant in grants:
-            grant_text = grant[0]
-            match = re.search(r"GRANT\s+`(\w+)`\s+TO", grant_text)
-            if match:
-                roles.append(match.group(1))
-
-        role = roles[0] if roles else None
+        
+        # Requête directe dans role_edges - pas de problème d'hôte !
+        cursor.execute("""
+            SELECT FROM_USER 
+            FROM mysql.role_edges 
+            WHERE TO_USER = %s 
+            LIMIT 1
+        """, (username,))
+        
+        result = cursor.fetchone()
+        role = result[0] if result else None
 
         cursor.close()
         conn.close()
@@ -211,7 +210,7 @@ class DAOMySQL:
         cursor.execute("""
             SELECT id_employee, login, password, actif, name, surname, 
                     mail_pro, tel1, tel2, tel3, id_patron
-            FROM EMPLOYEE WHERE mail_pro = %s
+            FROM employee WHERE mail_pro = %s
         """, (email,))
         result = cursor.fetchone()
         cursor.close()
@@ -226,7 +225,7 @@ class DAOMySQL:
         cursor.execute("""
             SELECT id_employee, login, password, actif, name, surname, 
                    mail_pro, tel1, tel2, tel3, id_patron
-            FROM EMPLOYEE WHERE login = %s
+            FROM employee WHERE login = %s
         """, (login,))
         result = cursor.fetchone()
         cursor.close()
@@ -240,7 +239,7 @@ class DAOMySQL:
         cursor = conn.cursor()
         cursor.execute("""
             SELECT login, mail_pro, password, id_patron
-            FROM EMPLOYEE WHERE mail_pro = %s
+            FROM employee WHERE mail_pro = %s
         """, (email,))
         result = cursor.fetchone()
         cursor.close()
@@ -258,7 +257,7 @@ class DAOMySQL:
                 return False
 
             cursor.execute("""
-                INSERT INTO EMPLOYEE (login, password, actif, name, surname, 
+                INSERT INTO employee (login, password, actif, name, surname, 
                                     mail_pro, tel1, tel2, tel3, id_patron)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
@@ -291,7 +290,7 @@ class DAOMySQL:
         cursor.execute("""
                 SELECT id_employee, login, name, surname, mail_pro, tel1, tel2, tel3, actif,
                     (CASE WHEN id_patron IS NULL THEN 'patron' ELSE 'vendeur' END) as role
-                FROM EMPLOYEE 
+                FROM employee 
                 """,)
         results = cursor.fetchall()
         cursor.close()
@@ -305,12 +304,26 @@ class DAOMySQL:
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         cursor.execute("""
             SELECT id_employee, login, name, surname, mail_pro, tel1, tel2, tel3, actif, id_patron
-            FROM EMPLOYEE WHERE id_employee = %s
+            FROM employee WHERE id_employee = %s
         """, (vendeur_id,))
         result = cursor.fetchone()
         cursor.close()
         conn.close()
         return result if result else None
+
+
+    def get_password(self, identifiant : tuple[str,str] , vendeur_id: int) -> Optional[Dict] :
+        """Récupère le mot de passe du vendeur """
+        conn = self._get_connection(identifiant)
+        cursor = conn.cursor(pymysql.cursors.DictCursor)
+        cursor.execute("""
+            SELECT password
+            FROM employee WHERE id_employee = %s
+        """,(vendeur_id,))
+        result = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        return result["password"] if result else None
 
 
     def modify_vendeur_partial(self, identifiant : tuple[str,str] , vendeur_id: int, update_data: dict) -> bool:
@@ -329,7 +342,7 @@ class DAOMySQL:
         values = list(update_data_copy.values()) + [vendeur_id]
 
         if set_clause:
-            query = f"UPDATE EMPLOYEE SET {set_clause} WHERE id_employee = %s"
+            query = f"UPDATE employee SET {set_clause} WHERE id_employee = %s"
 
             try:
                 cursor.execute(query, values)
@@ -340,7 +353,7 @@ class DAOMySQL:
                 conn.close()
                 return False
 
-        if role_value: 
+        if role_value:
             try:
                 employee = self.get_vendeur_by_id(identifiant, vendeur_id)
                 current_role = self.get_role(employee["login"])
@@ -348,13 +361,13 @@ class DAOMySQL:
                 if current_role != role_value:
                     if role_value == "patron":
                         cursor.execute("""
-                            UPDATE EMPLOYEE
+                            UPDATE employee
                             SET id_patron = NULL
                             WHERE id_employee = %s
                         """, (vendeur_id,))
                     
                     self.revoke(employee["login"], role_value)
-                    self.grant(employee["login"], employee["password"], role_value)
+                    self.grant(employee["login"], self.get_password(identifiant,vendeur_id), role_value)
 
             except Error as e:
                 print(f"Erreur gestion du rôle: {e}")
@@ -381,16 +394,9 @@ class DAOMySQL:
         cursor = conn.cursor()
         try:
             current_role = self.get_role(identifiant[0])
-            cursor.execute("""
-            REVOKE %s FROM %s@'localhost'
-            """,(current_role, identifiant[0],))
+            self.revoke(current_role, identifiant[0],)
 
-            if current_role == "patron":
-                cursor.execute("""
-                REVOKE GRANT OPTION FROM %s@'localhost'
-                """,(identifiant[0],))
-
-            cursor.execute("DELETE FROM EMPLOYEE WHERE id_employee = %s AND id_patron IS NOT NULL", (vendeur_id,))
+            cursor.execute("DELETE FROM employee WHERE id_employee = %s AND id_patron IS NOT NULL", (vendeur_id,))
             conn.commit()
             return cursor.rowcount > 0
         except Error as e:
@@ -408,7 +414,7 @@ class DAOMySQL:
         cursor = conn.cursor()
         try:
             cursor.execute("""
-                UPDATE EMPLOYEE 
+                UPDATE employee 
                 SET tel1 = %s, tel2 = %s, tel3 = %s
                 WHERE id_employee = %s
             """, (
@@ -428,7 +434,7 @@ class DAOMySQL:
             conn.close()
 
 
-    # --- Méthodes pour les CLIENTS ---
+    # --- Méthodes pour les clientS ---
 
     def get_all_clients(self, identifiant : tuple[str,str]) -> List[Dict]:
         """Récupère tous les clients avec leurs détails (sorciers ou moldus)"""
@@ -437,7 +443,7 @@ class DAOMySQL:
         
         cursor.execute("""
             SELECT id_client, name, surname, birth_date, money, id_employee, SORCIER, MOLDU
-            FROM CLIENT
+            FROM client
         """)
         clients = []
         
@@ -450,7 +456,7 @@ class DAOMySQL:
                 cursor2.execute("""
                     SELECT Wizard_registry_number, Chimney, Add_School_name, Add_House, 
                            Add_Country, Flight_licence, Owls_number1, Owls_number2, Owls_number3
-                    FROM SORCIER WHERE id_client = %s
+                    FROM sorcier WHERE id_client = %s
                 """, (client['id_client'],))
                 sorcier = self.iso_format(cursor2.fetchone())
                 if sorcier:
@@ -470,7 +476,7 @@ class DAOMySQL:
                 cursor2.execute("""
                     SELECT National_register_number, Mail, Add_Street, Add_City, 
                            Add_House_number, Add_Country, tel1, tel2, tel3
-                    FROM MOLDU WHERE id_client = %s
+                    FROM moldu WHERE id_client = %s
                 """, (client['id_client'],))
                 moldu = self.iso_format(cursor2.fetchone())
                 if moldu:
@@ -502,7 +508,7 @@ class DAOMySQL:
         
         cursor.execute("""
             SELECT id_client, name, surname, birth_date, money, id_employee, SORCIER, MOLDU
-            FROM CLIENT WHERE id_client = %s
+            FROM client WHERE id_client = %s
         """, (client_id,))
         client = self.iso_format(cursor.fetchone())
         
@@ -515,7 +521,7 @@ class DAOMySQL:
                 cursor2.execute("""
                     SELECT Wizard_registry_number, Chimney, Add_School_name, Add_House,
                            Add_Country, Flight_licence, Owls_number1, Owls_number2, Owls_number3
-                    FROM SORCIER WHERE id_client = %s
+                    FROM sorcier WHERE id_client = %s
                 """, (client_id,))
                 sorcier = self.iso_format(cursor2.fetchone())
                 if sorcier:
@@ -529,7 +535,7 @@ class DAOMySQL:
                 cursor2.execute("""
                     SELECT National_register_number, Mail, Add_Street, Add_City,
                            Add_House_number, Add_Country, tel1, tel2, tel3
-                    FROM MOLDU WHERE id_client = %s
+                    FROM moldu WHERE id_client = %s
                 """, (client_id,))
                 moldu = self.iso_format(cursor2.fetchone())
                 if moldu:
@@ -548,7 +554,7 @@ class DAOMySQL:
         cursor = conn.cursor()
         try:
             cursor.execute("""
-                INSERT INTO CLIENT (name, surname, birth_date, money, id_employee, SORCIER, MOLDU)
+                INSERT INTO client (name, surname, birth_date, money, id_employee, SORCIER, MOLDU)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
             """, (
                 client.name, client.surname, client.birth_date, client.money,
@@ -560,7 +566,7 @@ class DAOMySQL:
             
             if client.sorcier:
                 cursor.execute("""
-                    INSERT INTO SORCIER (id_client, Wizard_registry_number, Chimney, 
+                    INSERT INTO sorcier (id_client, Wizard_registry_number, Chimney, 
                                        Add_School_name, Add_House, Add_Country, 
                                        Flight_licence, Owls_number1, Owls_number2, Owls_number3)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -575,7 +581,7 @@ class DAOMySQL:
             
             if client.moldu:
                 cursor.execute("""
-                    INSERT INTO MOLDU (id_client, National_register_number, Mail,
+                    INSERT INTO moldu (id_client, National_register_number, Mail,
                                      Add_Street, Add_City, Add_House_number, Add_Country,
                                      tel1, tel2, tel3)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -606,12 +612,12 @@ class DAOMySQL:
         try:
             # Mise à jour du client principal avec les flags sorcier et moldu
             cursor.execute("""
-                UPDATE CLIENT 
+                UPDATE client 
                 SET name = %s, surname = %s, birth_date = %s, money = %s, id_employee = %s,
                     SORCIER = %s, MOLDU = %s
                 WHERE id_client = %s
-            """, (client.name, client.surname, client.birth_date, client.money, 
-                client.id_employee, 
+            """, (client.name, client.surname, client.birth_date, client.money,
+                client.id_employee,
                 1 if client.sorcier else 0,
                 1 if client.moldu else 0,
                 client.id_client))
@@ -619,13 +625,13 @@ class DAOMySQL:
             # Gestion du sorcier
             if client.sorcier:
                 # Vérifier si le client est déjà un sorcier
-                cursor.execute("SELECT 1 FROM SORCIER WHERE id_client = %s", (client.id_client,))
+                cursor.execute("SELECT 1 FROM sorcier WHERE id_client = %s", (client.id_client,))
                 exists = cursor.fetchone()
                 
                 if exists:
                     # Mise à jour
                     cursor.execute("""
-                        UPDATE SORCIER 
+                        UPDATE sorcier 
                         SET Wizard_registry_number = %s, Chimney = %s, Add_School_name = %s,
                             Add_House = %s, Add_Country = %s, Flight_licence = %s,
                             Owls_number1 = %s, Owls_number2 = %s, Owls_number3 = %s
@@ -642,7 +648,7 @@ class DAOMySQL:
                 else:
                     # Insertion d'un nouveau sorcier
                     cursor.execute("""
-                        INSERT INTO SORCIER (id_client, Wizard_registry_number, Chimney, Add_School_name,
+                        INSERT INTO sorcier (id_client, Wizard_registry_number, Chimney, Add_School_name,
                                             Add_House, Add_Country, Flight_licence, Owls_number1,
                                             Owls_number2, Owls_number3)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -655,18 +661,18 @@ class DAOMySQL:
                         client.sorcier.owls[2] if len(client.sorcier.owls) > 2 else None
                     ))
             else:
-                # Si le client n'est plus sorcier, supprimer l'entrée SORCIER
-                cursor.execute("DELETE FROM SORCIER WHERE id_client = %s", (client.id_client,))
-            
+                # Si le client n'est plus sorcier, supprimer l'entrée sorcier
+                cursor.execute("DELETE FROM sorcier WHERE id_client = %s", (client.id_client,))
+
             # Gestion du moldu
             if client.moldu:
                 # Vérifier si le client est déjà un moldu
-                cursor.execute("SELECT 1 FROM MOLDU WHERE id_client = %s", (client.id_client,))
+                cursor.execute("SELECT 1 FROM moldu WHERE id_client = %s", (client.id_client,))
                 exists = cursor.fetchone()
                 if exists:
                     # Mise à jour
                     cursor.execute("""
-                        UPDATE MOLDU 
+                        UPDATE moldu 
                         SET National_register_number = %s, Mail = %s, Add_Street = %s,
                             Add_City = %s, Add_House_number = %s, Add_Country = %s,
                             tel1 = %s, tel2 = %s, tel3 = %s
@@ -683,7 +689,7 @@ class DAOMySQL:
                 else:
                     # Insertion d'un nouveau moldu
                     cursor.execute("""
-                        INSERT INTO MOLDU (id_client, National_register_number, Mail, Add_Street,
+                        INSERT INTO moldu (id_client, National_register_number, Mail, Add_Street,
                                         Add_City, Add_House_number, Add_Country, tel1, tel2, tel3)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """, (
@@ -695,9 +701,9 @@ class DAOMySQL:
                         client.moldu.telephones[2] if len(client.moldu.telephones) > 2 else None
                     ))
             else:
-                # Si le client n'est plus moldu, supprimer l'entrée MOLDU
-                cursor.execute("DELETE FROM MOLDU WHERE id_client = %s", (client.id_client,))
-            
+                # Si le client n'est plus moldu, supprimer l'entrée moldu
+                cursor.execute("DELETE FROM moldu WHERE id_client = %s", (client.id_client,))
+
             conn.commit()
             return True
         except Error as e:
@@ -714,9 +720,9 @@ class DAOMySQL:
         conn = self._get_connection(identifiant)
         cursor = conn.cursor()
         try:
-            cursor.execute("DELETE FROM SORCIER WHERE id_client = %s", (client_id,))
-            cursor.execute("DELETE FROM MOLDU WHERE id_client = %s", (client_id,))
-            cursor.execute("DELETE FROM CLIENT WHERE id_client = %s", (client_id,))
+            cursor.execute("DELETE FROM sorcier WHERE id_client = %s", (client_id,))
+            cursor.execute("DELETE FROM moldu WHERE id_client = %s", (client_id,))
+            cursor.execute("DELETE FROM client WHERE id_client = %s", (client_id,))
             conn.commit()
             return True
         except Error as e:
@@ -727,7 +733,7 @@ class DAOMySQL:
             cursor.close()
             conn.close()
 
-    # --- Méthodes pour les BALAIS ---
+    # --- Méthodes pour les balaiS ---
 
     def get_all_brooms(self, identifiant : tuple[str,str]) -> List[Dict]:
         """Récupère tous les balais"""
@@ -736,9 +742,9 @@ class DAOMySQL:
         cursor.execute("""
             SELECT b.*, f.name as fabricant_name, 
                    bm.Flight_licence_required, bm.speed, bm.magic_component
-            FROM BALAI b
-            JOIN FABRICANT f ON b.id_fabricant = f.id_fabricant
-            LEFT JOIN BALAI_MAGIQUE bm ON b.id_balai = bm.id_balai
+            FROM balai b
+            JOIN fabricant f ON b.id_fabricant = f.id_fabricant
+            LEFT JOIN balai_magique bm ON b.id_balai = bm.id_balai
         """)
         results = cursor.fetchall()
         for i, row in enumerate(results):
@@ -756,9 +762,9 @@ class DAOMySQL:
         cursor.execute("""
             SELECT b.*, f.name as fabricant_name,
                    bm.Flight_licence_required, bm.speed, bm.magic_component
-            FROM BALAI b
-            JOIN FABRICANT f ON b.id_fabricant = f.id_fabricant
-            LEFT JOIN BALAI_MAGIQUE bm ON b.id_balai = bm.id_balai
+            FROM balai b
+            JOIN fabricant f ON b.id_fabricant = f.id_fabricant
+            LEFT JOIN balai_magique bm ON b.id_balai = bm.id_balai
             WHERE b.id_balai = %s
         """, (broom_id,))
         result = cursor.fetchone()
@@ -775,7 +781,7 @@ class DAOMySQL:
         conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         
-        cursor.execute("SELECT SORCIER FROM CLIENT WHERE id_client = %s", (client_id,))
+        cursor.execute("SELECT SORCIER FROM client WHERE id_client = %s", (client_id,))
         client = cursor.fetchone()
         is_sorcier = client and client['SORCIER'] is not None
         
@@ -783,17 +789,17 @@ class DAOMySQL:
             cursor.execute("""
                 SELECT DISTINCT b.*, f.name as fabricant_name,
                        bm.Flight_licence_required, bm.speed, bm.magic_component
-                FROM BALAI b
-                JOIN FABRICANT f ON b.id_fabricant = f.id_fabricant
-                LEFT JOIN BALAI_MAGIQUE bm ON b.id_balai = bm.id_balai
+                FROM balai b
+                JOIN fabricant f ON b.id_fabricant = f.id_fabricant
+                LEFT JOIN balai_magique bm ON b.id_balai = bm.id_balai
                 WHERE b.status = 'in stock'
             """)
         else:
             cursor.execute("""
                 SELECT DISTINCT b.*, f.name as fabricant_name
-                FROM BALAI b
-                JOIN FABRICANT f ON b.id_fabricant = f.id_fabricant
-                LEFT JOIN BALAI_MAGIQUE bm ON b.id_balai = bm.id_balai
+                FROM balai b
+                JOIN fabricant f ON b.id_fabricant = f.id_fabricant
+                LEFT JOIN balai_magique bm ON b.id_balai = bm.id_balai
                 WHERE b.status = 'in stock' AND bm.id_balai IS NULL
             """)
         
@@ -813,9 +819,9 @@ class DAOMySQL:
         cursor.execute("""
             SELECT b.*, f.name as fabricant_name,
                    bm.Flight_licence_required, bm.speed, bm.magic_component
-            FROM BALAI b
-            JOIN FABRICANT f ON b.id_fabricant = f.id_fabricant
-            LEFT JOIN BALAI_MAGIQUE bm ON b.id_balai = bm.id_balai
+            FROM balai b
+            JOIN fabricant f ON b.id_fabricant = f.id_fabricant
+            LEFT JOIN balai_magique bm ON b.id_balai = bm.id_balai
             WHERE b.status = 'in stock'
         """)
         results = cursor.fetchall()
@@ -844,10 +850,10 @@ class DAOMySQL:
                 cl.surname as client_surname,
                 e.name as employee_name, 
                 e.surname as employee_surname
-            FROM LOCATION l
-            JOIN COMMANDE c ON l.id_commande = c.id_commande
-            JOIN CLIENT cl ON c.id_client = cl.id_client
-            JOIN EMPLOYEE e ON c.id_employee = e.id_employee
+            FROM location l
+            JOIN commande c ON l.id_commande = c.id_commande
+            JOIN client cl ON c.id_client = cl.id_client
+            JOIN employee e ON c.id_employee = e.id_employee
             ORDER BY l.begin_date DESC
         """)
         
@@ -859,8 +865,8 @@ class DAOMySQL:
             cursor2 = conn.cursor(pymysql.cursors.DictCursor)
             cursor2.execute("""
                 SELECT b.id_balai, b.Libelle as broom_name, b.location_price
-                FROM DETAIL_LOCATION dl
-                JOIN BALAI b ON dl.id_balai = b.id_balai
+                FROM detail_location dl
+                JOIN balai b ON dl.id_balai = b.id_balai
                 WHERE dl.id_location = %s
             """, (row['id_commande'],))
             row['brooms'] = [dict(self.iso_format(item)) for item in cursor2.fetchall()]
@@ -871,8 +877,6 @@ class DAOMySQL:
             
             if row['begin_date'] and row['brooms']:
                 # Convertir les dates en objets date si ce sont des chaînes
-                from datetime import date
-                
                 begin_date = row['begin_date']
                 if isinstance(begin_date, str):
                     begin_date = date.fromisoformat(begin_date)
@@ -904,10 +908,10 @@ class DAOMySQL:
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         cursor.execute("""
             SELECT l.*, b.Libelle as broom_name, b.id_balai
-            FROM LOCATION l
-            JOIN COMMANDE c ON l.id_commande = c.id_commande
-            JOIN DETAIL_LOCATION dl ON l.id_commande = dl.id_location
-            JOIN BALAI b ON dl.id_balai = b.id_balai
+            FROM location l
+            JOIN commande c ON l.id_commande = c.id_commande
+            JOIN detail_location dl ON l.id_commande = dl.id_location
+            JOIN balai b ON dl.id_balai = b.id_balai
             WHERE c.id_client = %s
         """, (client_id,))
         results = cursor.fetchall()
@@ -925,11 +929,11 @@ class DAOMySQL:
         cursor.execute("""
             SELECT l.*, c.id_client, cl.name as client_name, cl.surname as client_surname,
                    b.Libelle as broom_name
-            FROM LOCATION l
-            JOIN COMMANDE c ON l.id_commande = c.id_commande
-            JOIN CLIENT cl ON c.id_client = cl.id_client
-            JOIN DETAIL_LOCATION dl ON l.id_commande = dl.id_location
-            JOIN BALAI b ON dl.id_balai = b.id_balai
+            FROM location l
+            JOIN commande c ON l.id_commande = c.id_commande
+            JOIN client cl ON c.id_client = cl.id_client
+            JOIN detail_location dl ON l.id_commande = dl.id_location
+            JOIN balai b ON dl.id_balai = b.id_balai
             WHERE c.id_employee = %s
         """, (vendeur_id,))
         results = cursor.fetchall()
@@ -947,8 +951,8 @@ class DAOMySQL:
         
         cursor.execute("""
             SELECT l.begin_date, l.end_date, l.status
-            FROM LOCATION l
-            JOIN DETAIL_LOCATION dl ON l.id_commande = dl.id_location
+            FROM location l
+            JOIN detail_location dl ON l.id_commande = dl.id_location
             WHERE dl.id_balai = %s 
             AND l.status != 'Finished'
             AND l.begin_date <= %s AND l.end_date >= %s
@@ -969,22 +973,22 @@ class DAOMySQL:
         conn = self._get_connection(identifiant)
         cursor = conn.cursor()
         try:
-            # Créer la COMMANDE
+            # Créer la commande
             cursor.execute("""
-                INSERT INTO COMMANDE (id_employee, id_client, VENTE, LOCATION)
+                INSERT INTO commande (id_employee, id_client, VENTE, LOCATION)
                 VALUES (%s, %s, NULL, 1)
             """, (employee_id, client_id))
             commande_id = cursor.lastrowid
             
-            # Créer la LOCATION
+            # Créer la location
             cursor.execute("""
-                INSERT INTO LOCATION (id_commande, begin_date, end_date, status)
+                INSERT INTO location (id_commande, begin_date, end_date, status)
                 VALUES (%s, %s, %s, 'Pending')
             """, (commande_id, location.startDate, location.endDate))
             
-            # Lier le balai à la location via DETAIL_LOCATION
+            # Lier le balai à la location via detail_location
             cursor.execute("""
-                INSERT INTO DETAIL_LOCATION (id_location, id_balai)
+                INSERT INTO detail_location (id_location, id_balai)
                 VALUES (%s, %s)
             """, (commande_id, location.broomId))
 
@@ -1008,9 +1012,9 @@ class DAOMySQL:
             # Vérifier que la location existe et récupérer les infos
             cursor.execute("""
                 SELECT c.id_commande, l.begin_date, l.end_date, c.id_client, cl.money
-                FROM COMMANDE c
-                JOIN LOCATION l ON c.id_commande = l.id_commande
-                JOIN CLIENT cl ON c.id_client = cl.id_client
+                FROM commande c
+                JOIN location l ON c.id_commande = l.id_commande
+                JOIN client cl ON c.id_client = cl.id_client
                 WHERE c.id_commande = %s AND c.LOCATION IS NOT NULL AND l.status != 'Finished'
             """, (commande_id,))
             location = cursor.fetchone()
@@ -1044,8 +1048,8 @@ class DAOMySQL:
             # Récupérer les balais de la location
             cursor.execute("""
                 SELECT b.location_price, b.id_balai
-                FROM DETAIL_LOCATION dl
-                INNER JOIN BALAI b ON dl.id_balai = b.id_balai
+                FROM detail_location dl
+                INNER JOIN balai b ON dl.id_balai = b.id_balai
                 WHERE dl.id_location = %s
             """, (commande_id,))
             brooms = cursor.fetchall()
@@ -1078,24 +1082,24 @@ class DAOMySQL:
 
             # Débiter le client
             cursor.execute("""
-                UPDATE CLIENT 
+                UPDATE client 
                 SET money = money - %s 
                 WHERE id_client = %s
             """, (total_amount, client_id))
 
             # Mettre à jour la location
             cursor.execute("""
-                UPDATE LOCATION 
+                UPDATE location 
                 SET actual_end_date = %s, status = 'Finished'
                 WHERE id_commande = %s
             """, (actual_end_date, commande_id))
 
             # Mettre à jour le statut des balais
             cursor.execute("""
-                UPDATE BALAI 
+                UPDATE balai 
                 SET status = 'in stock'
                 WHERE id_balai IN (
-                    SELECT id_balai FROM DETAIL_LOCATION 
+                    SELECT id_balai FROM detail_location 
                     WHERE id_location = %s
                 )
             """, (commande_id,))
@@ -1121,19 +1125,19 @@ class DAOMySQL:
             # Récupérer le balai associé
             cursor.execute("""
                 SELECT b.id_balai
-                FROM LOCATION l
-                JOIN DETAIL_LOCATION dl ON l.id_commande = dl.id_location
-                JOIN BALAI b ON dl.id_balai = b.id_balai
+                FROM location l
+                JOIN detail_location dl ON l.id_commande = dl.id_location
+                JOIN balai b ON dl.id_balai = b.id_balai
                 WHERE l.id_commande = %s
             """, (location_id,))
             result = cursor.fetchone()
             
             if result:
-                cursor.execute("UPDATE BALAI SET status = 'in stock' WHERE id_balai = %s", (result[0],))
+                cursor.execute("UPDATE balai SET status = 'in stock' WHERE id_balai = %s", (result[0],))
             
-            cursor.execute("DELETE FROM DETAIL_LOCATION WHERE id_location = %s", (location_id,))
-            cursor.execute("DELETE FROM LOCATION WHERE id_commande = %s", (location_id,))
-            cursor.execute("DELETE FROM COMMANDE WHERE id_commande = %s", (location_id,))
+            cursor.execute("DELETE FROM detail_location WHERE id_location = %s", (location_id,))
+            cursor.execute("DELETE FROM location WHERE id_commande = %s", (location_id,))
+            cursor.execute("DELETE FROM commande WHERE id_commande = %s", (location_id,))
             
             conn.commit()
             return True
@@ -1154,8 +1158,8 @@ class DAOMySQL:
         
         cursor.execute("""
             SELECT v.id_commande, v.sale_date, c.id_client
-            FROM VENTE v
-            JOIN COMMANDE c ON v.id_commande = c.id_commande
+            FROM vente v
+            JOIN commande c ON v.id_commande = c.id_commande
             WHERE v.id_commande = %s
         """, (vente_id,))
 
@@ -1178,11 +1182,11 @@ class DAOMySQL:
                 cl.name as client_name,
                 cl.surname as client_surname,
                 (SELECT COALESCE(SUM(b2.sale_price), 0) 
-                FROM BALAI b2 
+                FROM balai b2 
                 WHERE b2.id_vente = c.id_commande) as total_amount
-            FROM COMMANDE c
-            JOIN VENTE v ON c.id_commande = v.id_commande
-            JOIN CLIENT cl ON c.id_client = cl.id_client
+            FROM commande c
+            JOIN vente v ON c.id_commande = v.id_commande
+            JOIN client cl ON c.id_client = cl.id_client
             WHERE c.id_commande = %s AND c.id_client = %s AND c.VENTE IS NOT NULL
         """, (commande_id, client_id))
         
@@ -1195,7 +1199,7 @@ class DAOMySQL:
             cursor2 = conn.cursor(pymysql.cursors.DictCursor)
             cursor2.execute("""
                 SELECT b.id_balai, b.Libelle as broom_name, b.sale_price
-                FROM BALAI b
+                FROM balai b
                 WHERE b.id_vente = %s
             """, (commande_id,))
             
@@ -1222,11 +1226,11 @@ class DAOMySQL:
                 e.name as employee_name, 
                 e.surname as employee_surname,
                 COALESCE(SUM(b.sale_price), 0) as total_amount
-            FROM COMMANDE c
-            JOIN VENTE v ON c.id_commande = v.id_commande
-            JOIN CLIENT cl ON c.id_client = cl.id_client
-            JOIN EMPLOYEE e ON c.id_employee = e.id_employee
-            LEFT JOIN BALAI b ON b.id_vente = c.id_commande
+            FROM commande c
+            JOIN vente v ON c.id_commande = v.id_commande
+            JOIN client cl ON c.id_client = cl.id_client
+            JOIN employee e ON c.id_employee = e.id_employee
+            LEFT JOIN balai b ON b.id_vente = c.id_commande
             GROUP BY c.id_commande, v.sale_date, c.id_client, cl.name, cl.surname, e.name, e.surname
             ORDER BY v.sale_date DESC
         """)
@@ -1239,7 +1243,7 @@ class DAOMySQL:
             cursor2 = conn.cursor(pymysql.cursors.DictCursor)
             cursor2.execute("""
                 SELECT b.id_balai, b.Libelle as broom_name, b.sale_price
-                FROM BALAI b
+                FROM balai b
                 WHERE b.id_vente = %s
             """, (row['id_commande'],))
             row['items'] = [dict(self.iso_format(item)) for item in cursor2.fetchall()]
@@ -1258,9 +1262,9 @@ class DAOMySQL:
         cursor = conn.cursor(pymysql.cursors.DictCursor)
         cursor.execute("""
             SELECT c.*, v.sale_date, b.Libelle as broom_name, b.sale_price
-            FROM COMMANDE c
-            JOIN VENTE v ON c.id_commande = v.id_commande
-            JOIN BALAI b ON b.id_vente = c.id_commande
+            FROM commande c
+            JOIN vente v ON c.id_commande = v.id_commande
+            JOIN balai b ON b.id_vente = c.id_commande
             WHERE c.id_client = %s
         """, (client_id,))
         results = cursor.fetchall()
@@ -1279,12 +1283,12 @@ class DAOMySQL:
             SELECT v.*, c.id_client, cl.name as client_name, cl.surname as client_surname,
                 b.Libelle as broom_name, b.sale_price as sale_price,
                 (SELECT SUM(b2.sale_price) 
-                    FROM BALAI b2 
+                    FROM balai b2 
                     WHERE b2.id_vente = v.id_commande) as total_amount
-            FROM VENTE v
-            JOIN COMMANDE c ON v.id_commande = c.id_commande
-            JOIN CLIENT cl ON c.id_client = cl.id_client
-            JOIN BALAI b ON b.id_vente = v.id_commande
+            FROM vente v
+            JOIN commande c ON v.id_commande = c.id_commande
+            JOIN client cl ON c.id_client = cl.id_client
+            JOIN balai b ON b.id_vente = v.id_commande
             WHERE c.id_employee = %s
         """, (vendeur_id,))
         results = cursor.fetchall()
@@ -1304,13 +1308,13 @@ class DAOMySQL:
 
             for broom_id in broom_ids :
                 # Récupérer le prix du balai
-                cursor.execute("SELECT sale_price, status FROM BALAI WHERE id_balai = %s", (broom_id,))
+                cursor.execute("SELECT sale_price, status FROM balai WHERE id_balai = %s", (broom_id,))
                 broom = cursor.fetchone()
                 if not broom or broom['status'] != 'in stock':
                     return False
                 sale_price += broom['sale_price']
 
-            cursor.execute("SELECT money FROM CLIENT WHERE id_client = %s", (client_id,))
+            cursor.execute("SELECT money FROM client WHERE id_client = %s", (client_id,))
             client_money = cursor.fetchone()
 
             remnant = client_money['money'] - sale_price
@@ -1320,34 +1324,34 @@ class DAOMySQL:
 
             current_date = date.today().isoformat()
 
-            # Créer la COMMANDE
+            # Créer la commande
             cursor.execute("""
-                INSERT INTO COMMANDE (id_employee, id_client, VENTE, LOCATION)
+                INSERT INTO commande (id_employee, id_client, VENTE, LOCATION)
                 VALUES (%s, %s, 1, NULL)
             """, (employee_id, client_id))
             commande_id = cursor.lastrowid
 
             cursor.execute("""
-                UPDATE COMMANDE SET VENTE = %s WHERE id_commande = %s
+                UPDATE commande SET VENTE = %s WHERE id_commande = %s
             """, (commande_id, commande_id))
 
             # Créer la VENTE
             cursor.execute("""
-                INSERT INTO VENTE (id_commande, sale_date)
+                INSERT INTO vente (id_commande, sale_date)
                 VALUES (%s, %s)
             """, (commande_id, current_date))
 
             for broom_id in broom_ids :
                 # Mettre à jour le balai
                 cursor.execute("""
-                    UPDATE BALAI 
+                    UPDATE balai 
                     SET id_vente = %s, status = 'sold'
                     WHERE id_balai = %s
                 """, (commande_id, broom_id))
             
             # Débiter le client
             cursor.execute("""
-                UPDATE CLIENT
+                UPDATE client
                 SET money = %s
                 WHERE id_client = %s
             """, (remnant, client_id))
@@ -1372,7 +1376,7 @@ class DAOMySQL:
             # Récupérer la commande associée à la vente
             cursor.execute("""
                 SELECT id_commande, sale_date 
-                FROM VENTE 
+                FROM vente 
                 WHERE id_commande = %s
             """, (vente_id,))
             vente = cursor.fetchone()
@@ -1384,7 +1388,7 @@ class DAOMySQL:
             # Récupérer tous les balais associés à cette vente
             cursor.execute("""
                 SELECT id_balai, sale_price 
-                FROM BALAI 
+                FROM balai 
                 WHERE id_vente = %s
             """, (vente_id,))
             brooms = cursor.fetchall()
@@ -1401,7 +1405,7 @@ class DAOMySQL:
             # Récupérer l'id_client depuis la commande
             cursor.execute("""
                 SELECT id_client 
-                FROM COMMANDE 
+                FROM commande 
                 WHERE id_commande = %s
             """, (vente_id,))
             commande = cursor.fetchone()
@@ -1413,13 +1417,13 @@ class DAOMySQL:
             client_id = commande['id_client']
 
             # Rembourser le client
-            cursor.execute("SELECT money FROM CLIENT WHERE id_client = %s", (client_id,))
+            cursor.execute("SELECT money FROM client WHERE id_client = %s", (client_id,))
             client_money = cursor.fetchone()
 
             new_money = client_money['money'] + total_refund
 
             cursor.execute("""
-                UPDATE CLIENT
+                UPDATE client
                 SET money = %s
                 WHERE id_client = %s
             """, (new_money, client_id))
@@ -1427,16 +1431,16 @@ class DAOMySQL:
             # Restaurer les balais
             for broom in brooms:
                 cursor.execute("""
-                    UPDATE BALAI 
+                    UPDATE balai 
                     SET id_vente = NULL, status = 'in stock'
                     WHERE id_balai = %s
                 """, (broom['id_balai'],))
 
             # Supprimer la vente
-            cursor.execute("DELETE FROM VENTE WHERE id_commande = %s", (vente_id,))
+            cursor.execute("DELETE FROM vente WHERE id_commande = %s", (vente_id,))
 
             # Supprimer la commande
-            cursor.execute("DELETE FROM COMMANDE WHERE id_commande = %s", (vente_id,))
+            cursor.execute("DELETE FROM commande WHERE id_commande = %s", (vente_id,))
 
             conn.commit()
             return True
@@ -1455,7 +1459,7 @@ class DAOMySQL:
         """Récupère tous les fabricants/fournisseurs"""
         conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
-        cursor.execute("SELECT id_fabricant, name, Mail FROM FABRICANT")
+        cursor.execute("SELECT id_fabricant, name, Mail FROM fabricant")
         results = cursor.fetchall()
         cursor.close()
         conn.close()
@@ -1466,13 +1470,13 @@ class DAOMySQL:
         """Récupère un fabricant par son ID"""
         conn = self._get_connection(identifiant)
         cursor = conn.cursor(pymysql.cursors.DictCursor)
-        cursor.execute("SELECT id_fabricant, name, Mail FROM FABRICANT WHERE id_fabricant = %s", (fabricant_id,))
+        cursor.execute("SELECT id_fabricant, name, Mail FROM fabricant WHERE id_fabricant = %s", (fabricant_id,))
         result = cursor.fetchone()
         cursor.close()
         conn.close()
         return result if result else None
 
-    # --- Méthodes pour les COMMANDES FOURNISSEUR ---
+    # --- Méthodes pour les commandeS FOURNISSEUR ---
 
     def create_commande_fournisseur(self, identifiant : tuple[str,str] , commande_data: dict) -> bool:
         """Crée une commande fournisseur"""
@@ -1480,13 +1484,13 @@ class DAOMySQL:
         cursor = conn.cursor()
         try:
             # Récupérer l'ID d'un patron
-            cursor.execute("SELECT id_employee FROM EMPLOYEE WHERE id_patron IS NULL LIMIT 1")
+            cursor.execute("SELECT id_employee FROM employee WHERE id_patron IS NULL LIMIT 1")
             patron = cursor.fetchone()
             patron_id = patron[0] if patron else None
             
             # Insérer la commande fournisseur
             cursor.execute("""
-                INSERT INTO COMMANDE_FOURNISSEUR 
+                INSERT INTO commande_fournisseur 
                 (id_vendeur, id_patron, status, command_date, expected_delivery_date)
                 VALUES (%s, %s, 'Pending Approuval', %s, %s)
             """, (
@@ -1505,7 +1509,7 @@ class DAOMySQL:
                 cursor2 = conn.cursor(pymysql.cursors.DictCursor)
                 cursor2.execute("""
                     SELECT Libelle, description, img, sale_price, location_price, purchase_price, id_fabricant
-                    FROM BALAI WHERE id_balai = %s
+                    FROM balai WHERE id_balai = %s
                 """, (template_id,))
                 source_broom = cursor2.fetchone()
                 cursor2.close()
@@ -1514,9 +1518,9 @@ class DAOMySQL:
                     continue
                 
                 for _ in range(quantity):
-                    # Créer un NOUVEAU BALAI
+                    # Créer un NOUVEAU balai
                     cursor.execute("""
-                        INSERT INTO BALAI 
+                        INSERT INTO balai 
                         (Libelle, description, img, uses_number, sale_price, 
                          location_price, purchase_price, wear, status, id_commande_fournisseur, id_fabricant)
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -1539,14 +1543,14 @@ class DAOMySQL:
                     cursor3 = conn.cursor(pymysql.cursors.DictCursor)
                     cursor3.execute("""
                         SELECT Flight_licence_required, speed, magic_component
-                        FROM BALAI_MAGIQUE WHERE id_balai = %s
+                        FROM balai_magique WHERE id_balai = %s
                     """, (template_id,))
                     magic_broom = cursor3.fetchone()
                     cursor3.close()
                     
                     if magic_broom:
                         cursor.execute("""
-                            INSERT INTO BALAI_MAGIQUE 
+                            INSERT INTO balai_magique 
                             (id_balai, Flight_licence_required, speed, magic_component)
                             VALUES (%s, %s, %s, %s)
                         """, (
@@ -1574,7 +1578,7 @@ class DAOMySQL:
         
         cursor.execute("""
             SELECT id_commande, status, command_date, expected_delivery_date, actual_delivery_date
-            FROM COMMANDE_FOURNISSEUR
+            FROM commande_fournisseur
             WHERE id_commande = %s
         """, (commande_id,))
         
@@ -1599,8 +1603,8 @@ class DAOMySQL:
             SELECT cf.id_commande, cf.status, cf.command_date, cf.expected_delivery_date, 
                    cf.actual_delivery_date,
                    e.name as vendeur_name, e.surname as vendeur_surname
-            FROM COMMANDE_FOURNISSEUR cf
-            JOIN EMPLOYEE e ON cf.id_vendeur = e.id_employee
+            FROM commande_fournisseur cf
+            JOIN employee e ON cf.id_vendeur = e.id_employee
             WHERE cf.id_vendeur = %s
             ORDER BY cf.command_date DESC
         """, (vendeur_id,))
@@ -1614,8 +1618,8 @@ class DAOMySQL:
             cursor2.execute("""
                 SELECT b.Libelle as broom_name, COUNT(*) as quantity,
                        f.name as fournisseur_name, b.purchase_price
-                FROM BALAI b
-                JOIN FABRICANT f ON b.id_fabricant = f.id_fabricant
+                FROM balai b
+                JOIN fabricant f ON b.id_fabricant = f.id_fabricant
                 WHERE b.id_commande_fournisseur = %s
                 GROUP BY b.Libelle, f.name
             """, (commande['id_commande'],))
@@ -1650,8 +1654,8 @@ class DAOMySQL:
                     cf.actual_delivery_date,
                     e.name as vendeur_name, 
                     e.surname as vendeur_surname
-                FROM COMMANDE_FOURNISSEUR cf
-                JOIN EMPLOYEE e ON cf.id_vendeur = e.id_employee
+                FROM commande_fournisseur cf
+                JOIN employee e ON cf.id_vendeur = e.id_employee
                 ORDER BY cf.command_date DESC
             """)
             
@@ -1668,8 +1672,8 @@ class DAOMySQL:
                         f.name as fournisseur_name, 
                         b.purchase_price,
                         (b.purchase_price * COUNT(*)) as total_price
-                    FROM BALAI b
-                    JOIN FABRICANT f ON b.id_fabricant = f.id_fabricant
+                    FROM balai b
+                    JOIN fabricant f ON b.id_fabricant = f.id_fabricant
                     WHERE b.id_commande_fournisseur = %s
                     GROUP BY b.id_balai, b.Libelle, f.name, b.purchase_price
                 """, (commande['id_commande'],))
@@ -1710,8 +1714,8 @@ class DAOMySQL:
         cursor.execute("""
             SELECT cf.id_commande, cf.status, cf.command_date, cf.expected_delivery_date,
                    e.name as vendeur_name, e.surname as vendeur_surname
-            FROM COMMANDE_FOURNISSEUR cf
-            JOIN EMPLOYEE e ON cf.id_vendeur = e.id_employee
+            FROM commande_fournisseur cf
+            JOIN employee e ON cf.id_vendeur = e.id_employee
             WHERE cf.status = 'Pending Approuval'
             ORDER BY cf.command_date ASC
         """)
@@ -1723,11 +1727,11 @@ class DAOMySQL:
             cursor2 = conn.cursor(pymysql.cursors.DictCursor)
             cursor2.execute("""
                 SELECT b.Libelle as broom_name, COUNT(*) as quantity,
-                       f.name as fournisseur_name, b.purchase_price
-                FROM BALAI b
-                JOIN FABRICANT f ON b.id_fabricant = f.id_fabricant
+                    f.name as fournisseur_name, b.purchase_price
+                FROM balai b
+                JOIN fabricant f ON b.id_fabricant = f.id_fabricant
                 WHERE b.id_commande_fournisseur = %s
-                GROUP BY b.Libelle, f.name
+                GROUP BY b.Libelle, f.name, b.purchase_price
             """, (commande['id_commande'],))
             
             commande['items'] = [dict(self.iso_format(item)) for item in cursor2.fetchall()]
@@ -1751,7 +1755,7 @@ class DAOMySQL:
         cursor = conn.cursor()
         try:
             cursor.execute("""
-                UPDATE COMMANDE_FOURNISSEUR 
+                UPDATE commande_fournisseur 
                 SET status = 'Pending'
                 WHERE id_commande = %s AND status = 'Pending Approuval'
             """, (commande_id,))
@@ -1776,7 +1780,7 @@ class DAOMySQL:
         cursor = conn.cursor()
         try:
             cursor.execute("""
-                UPDATE COMMANDE_FOURNISSEUR 
+                UPDATE commande_fournisseur 
                 SET status = %s
                 WHERE id_commande = %s
             """, (status, commande_id))
@@ -1797,14 +1801,14 @@ class DAOMySQL:
         cursor = conn.cursor()
         try:
             cursor.execute("""
-                UPDATE COMMANDE_FOURNISSEUR 
+                UPDATE commande_fournisseur 
                 SET actual_delivery_date = %s, status = 'Finished'
                 WHERE id_commande = %s
             """, (datetime.now().isoformat(), commande_id))
             
             # Mettre à jour le statut des balais concernés
             cursor.execute("""
-                UPDATE BALAI 
+                UPDATE balai 
                 SET status = 'in stock'
                 WHERE id_commande_fournisseur = %s
             """, (commande_id,))
@@ -1831,9 +1835,9 @@ class DAOMySQL:
         # CA total des ventes
         cursor.execute("""
             SELECT COALESCE(SUM(b.sale_price), 0) as total_ca
-            FROM COMMANDE c
-            JOIN VENTE v ON c.id_commande = v.id_commande
-            JOIN BALAI b ON b.id_vente = c.id_commande
+            FROM commande c
+            JOIN vente v ON c.id_commande = v.id_commande
+            JOIN balai b ON b.id_vente = c.id_commande
             WHERE c.id_employee = %s
         """, (vendeur_id,))
         stats['total_ca'] = cursor.fetchone()['total_ca']
@@ -1841,8 +1845,8 @@ class DAOMySQL:
         # Nombre de ventes
         cursor.execute("""
             SELECT COUNT(*) as count
-            FROM COMMANDE c
-            JOIN VENTE v ON c.id_commande = v.id_commande
+            FROM commande c
+            JOIN vente v ON c.id_commande = v.id_commande
             WHERE c.id_employee = %s
         """, (vendeur_id,))
         stats['ventes_count'] = cursor.fetchone()['count']
@@ -1850,8 +1854,8 @@ class DAOMySQL:
         # Nombre de locations gérées
         cursor.execute("""
             SELECT COUNT(*) as count
-            FROM COMMANDE c
-            JOIN LOCATION l ON c.id_commande = l.id_commande
+            FROM commande c
+            JOIN location l ON c.id_commande = l.id_commande
             WHERE c.id_employee = %s
         """, (vendeur_id,))
         stats['locations_count'] = cursor.fetchone()['count']
@@ -1859,7 +1863,7 @@ class DAOMySQL:
         # Nombre de clients servis
         cursor.execute("""
             SELECT COUNT(DISTINCT c.id_client) as count
-            FROM COMMANDE c
+            FROM commande c
             WHERE c.id_employee = %s
         """, (vendeur_id,))
         stats['clients_count'] = cursor.fetchone()['count']
@@ -1869,9 +1873,9 @@ class DAOMySQL:
             SELECT DATE_FORMAT(v.sale_date, '%%Y-%%m') as month,
                 COUNT(*) as ventes_count,
                 COALESCE(SUM(b.sale_price), 0) as ca
-            FROM VENTE v
-            JOIN COMMANDE c ON v.id_commande = c.id_commande
-            JOIN BALAI b ON b.id_vente = v.id_commande
+            FROM vente v
+            JOIN commande c ON v.id_commande = c.id_commande
+            JOIN balai b ON b.id_vente = v.id_commande
             WHERE c.id_employee = %s
             GROUP BY DATE_FORMAT(v.sale_date, '%%Y-%%m')
             ORDER BY month DESC
@@ -1882,9 +1886,9 @@ class DAOMySQL:
         # Top balais vendus
         cursor.execute("""
             SELECT b.Libelle as broom_name, COUNT(*) as quantity
-            FROM VENTE v
-            JOIN COMMANDE c ON v.id_commande = c.id_commande
-            JOIN BALAI b ON b.id_vente = v.id_commande
+            FROM vente v
+            JOIN commande c ON v.id_commande = c.id_commande
+            JOIN balai b ON b.id_vente = v.id_commande
             WHERE c.id_employee = %s
             GROUP BY b.id_balai, b.Libelle
             ORDER BY quantity DESC
@@ -1906,10 +1910,10 @@ class DAOMySQL:
             SELECT v.id_commande, v.sale_date,
                 cl.name as client_name, cl.surname as client_surname,
                 COALESCE(SUM(b.sale_price), 0) as total_amount
-            FROM VENTE v
-            JOIN COMMANDE c ON v.id_commande = c.id_commande
-            JOIN CLIENT cl ON c.id_client = cl.id_client
-            JOIN BALAI b ON b.id_vente = v.id_commande
+            FROM vente v
+            JOIN commande c ON v.id_commande = c.id_commande
+            JOIN client cl ON c.id_client = cl.id_client
+            JOIN balai b ON b.id_vente = v.id_commande
             WHERE c.id_employee = %s AND v.sale_date BETWEEN %s AND %s
             GROUP BY v.id_commande, v.sale_date, cl.name, cl.surname
             ORDER BY v.sale_date DESC
@@ -1922,7 +1926,7 @@ class DAOMySQL:
             cursor2 = conn.cursor(pymysql.cursors.DictCursor)
             cursor2.execute("""
                 SELECT b.Libelle as broom_name, COUNT(*) as quantity, b.sale_price
-                FROM BALAI b
+                FROM balai b
                 WHERE b.id_vente = %s
                 GROUP BY b.id_balai, b.Libelle, b.sale_price
             """, (vente['id_commande'],))
@@ -1945,11 +1949,11 @@ class DAOMySQL:
             SELECT l.id_commande, l.begin_date, l.end_date, l.actual_end_date, l.status,
                 cl.name as client_name, cl.surname as client_surname,
                 b.Libelle as broom_name
-            FROM LOCATION l
-            JOIN COMMANDE c ON l.id_commande = c.id_commande
-            JOIN CLIENT cl ON c.id_client = cl.id_client
-            JOIN DETAIL_LOCATION dl ON l.id_commande = dl.id_location
-            JOIN BALAI b ON dl.id_balai = b.id_balai
+            FROM location l
+            JOIN commande c ON l.id_commande = c.id_commande
+            JOIN client cl ON c.id_client = cl.id_client
+            JOIN detail_location dl ON l.id_commande = dl.id_location
+            JOIN balai b ON dl.id_balai = b.id_balai
             WHERE c.id_employee = %s
         """
         params = [vendeur_id]
@@ -1978,10 +1982,10 @@ class DAOMySQL:
             SELECT DISTINCT v.id_commande, v.sale_date,
                 cl.name as client_name, cl.surname as client_surname,
                 COALESCE(SUM(b.sale_price), 0) as total_amount
-            FROM VENTE v
-            JOIN COMMANDE c ON v.id_commande = c.id_commande
-            JOIN CLIENT cl ON c.id_client = cl.id_client
-            JOIN BALAI b ON b.id_vente = v.id_commande
+            FROM vente v
+            JOIN commande c ON v.id_commande = c.id_commande
+            JOIN client cl ON c.id_client = cl.id_client
+            JOIN balai b ON b.id_vente = v.id_commande
             WHERE c.id_employee = %s 
             AND (cl.name LIKE %s OR cl.surname LIKE %s OR b.Libelle LIKE %s)
             GROUP BY v.id_commande, v.sale_date, cl.name, cl.surname
@@ -2005,11 +2009,11 @@ class DAOMySQL:
             SELECT l.id_commande, l.begin_date, l.end_date, l.actual_end_date, l.status,
                 cl.name as client_name, cl.surname as client_surname,
                 b.Libelle as broom_name
-            FROM LOCATION l
-            JOIN COMMANDE c ON l.id_commande = c.id_commande
-            JOIN CLIENT cl ON c.id_client = cl.id_client
-            JOIN DETAIL_LOCATION dl ON l.id_commande = dl.id_location
-            JOIN BALAI b ON dl.id_balai = b.id_balai
+            FROM location l
+            JOIN commande c ON l.id_commande = c.id_commande
+            JOIN client cl ON c.id_client = cl.id_client
+            JOIN detail_location dl ON l.id_commande = dl.id_location
+            JOIN balai b ON dl.id_balai = b.id_balai
             WHERE c.id_employee = %s
             AND (cl.name LIKE %s OR cl.surname LIKE %s OR b.Libelle LIKE %s)
             ORDER BY l.begin_date DESC
@@ -2031,11 +2035,11 @@ class DAOMySQL:
         # Trouver la première date disponible dans le système
         cursor.execute("""
             SELECT MIN(date_min) as first_date FROM (
-                SELECT MIN(sale_date) as date_min FROM VENTE WHERE sale_date IS NOT NULL
+                SELECT MIN(sale_date) as date_min FROM vente WHERE sale_date IS NOT NULL
                 UNION
-                SELECT MIN(command_date) as date_min FROM COMMANDE_FOURNISSEUR WHERE command_date IS NOT NULL
+                SELECT MIN(command_date) as date_min FROM commande_fournisseur WHERE command_date IS NOT NULL
                 UNION
-                SELECT MIN(begin_date) as date_min FROM LOCATION WHERE begin_date IS NOT NULL
+                SELECT MIN(begin_date) as date_min FROM location WHERE begin_date IS NOT NULL
             ) as all_dates
         """)
 
@@ -2092,7 +2096,7 @@ class DAOMySQL:
         # Nombre de ventes
         cursor.execute("""
             SELECT COUNT(DISTINCT id_commande) as count
-            FROM VENTE
+            FROM vente
             WHERE sale_date BETWEEN %s AND %s
         """, (start_date, end_date,),)
         stats['ventes_count'] = self.iso_format(cursor.fetchone())['count']
@@ -2100,7 +2104,7 @@ class DAOMySQL:
         # Nombre de locations
         cursor.execute("""
             SELECT COUNT(*) as count
-            FROM LOCATION l
+            FROM location l
             WHERE l.begin_date BETWEEN %s AND %s
         """, (start_date, end_date))
         stats['locations_count'] = self.iso_format(cursor.fetchone())['count']
@@ -2108,7 +2112,7 @@ class DAOMySQL:
         # Statuts des locations sur la période
         cursor.execute("""
             SELECT status, COUNT(*) as count 
-            FROM LOCATION 
+            FROM location 
             WHERE status = 'Pending' OR begin_date BETWEEN %s AND %s
             GROUP BY status
         """, (start_date, end_date))
@@ -2171,9 +2175,9 @@ class DAOMySQL:
         # Nombre de clients uniques sur la période
         cursor.execute("""
             SELECT COUNT(DISTINCT c.id_client) as count
-            FROM COMMANDE c
-            LEFT JOIN VENTE v ON c.VENTE = v.id_commande
-            LEFT JOIN LOCATION l ON c.LOCATION = l.id_commande
+            FROM commande c
+            LEFT JOIN vente v ON c.VENTE = v.id_commande
+            LEFT JOIN location l ON c.LOCATION = l.id_commande
             WHERE (v.sale_date BETWEEN %s AND %s) OR (l.begin_date BETWEEN %s AND %s)
         """, (start_date, end_date, start_date, end_date))
         stats['clients_count'] = self.iso_format(cursor.fetchone())['count']
@@ -2223,10 +2227,10 @@ class DAOMySQL:
                 e.surname as employee_surname,
                 v.ca_location
             FROM ca_locations_detail v
-            JOIN LOCATION l ON v.id_commande = l.id_commande
-            JOIN COMMANDE c ON l.id_commande = c.id_commande
-            JOIN CLIENT cl ON c.id_client = cl.id_client
-            JOIN EMPLOYEE e ON c.id_employee = e.id_employee
+            JOIN location l ON v.id_commande = l.id_commande
+            JOIN commande c ON l.id_commande = c.id_commande
+            JOIN client cl ON c.id_client = cl.id_client
+            JOIN employee e ON c.id_employee = e.id_employee
             WHERE v.date BETWEEN %s AND %s
             ORDER BY v.date DESC
         """, (start_date, end_date))
@@ -2256,8 +2260,8 @@ class DAOMySQL:
                 e.surname as vendeur_surname,
                 d.total_depenses
             FROM depenses_fournisseurs d
-            JOIN COMMANDE_FOURNISSEUR cf ON d.id_commande = cf.id_commande
-            JOIN EMPLOYEE e ON cf.id_vendeur = e.id_employee
+            JOIN commande_fournisseur cf ON d.id_commande = cf.id_commande
+            JOIN employee e ON cf.id_vendeur = e.id_employee
             WHERE d.date BETWEEN %s AND %s
             ORDER BY cf.command_date DESC
         """, (start_date, end_date))
@@ -2271,8 +2275,8 @@ class DAOMySQL:
             cursor2.execute("""
                 SELECT b.Libelle as broom_name, COUNT(*) as quantity,
                     f.name as fournisseur_name, b.purchase_price
-                FROM BALAI b
-                JOIN FABRICANT f ON b.id_fabricant = f.id_fabricant
+                FROM balai b
+                JOIN fabricant f ON b.id_fabricant = f.id_fabricant
                 WHERE b.id_commande_fournisseur = %s
                 GROUP BY b.Libelle, f.name, b.purchase_price
             """, (commande['id_commande'],))
