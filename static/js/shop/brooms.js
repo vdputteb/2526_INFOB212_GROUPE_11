@@ -38,9 +38,8 @@ function createBroomCard(broom) {
     // Utilisation de l'image si disponible, sinon emoji par défaut
     if (broom.img) {
         const img = document.createElement('img');
-        img.src = `/static/images/${broom.img}`;
+        img.src = `/static${broom.img}`;
         img.alt = escapeHtml(broom.Libelle);
-        img.style.width = '100%';
         img.style.height = '100%';
         img.style.objectFit = 'cover';
         broomImage.appendChild(img);
