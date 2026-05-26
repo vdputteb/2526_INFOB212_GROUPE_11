@@ -131,8 +131,8 @@ locbalais/
 # Base de données
 DB_HOST=db
 DB_PORT=3306
-DB_USER=votre_utilisateur
-DB_PASSWORD=votre_mot_de_passe
+DB_USER=root
+DB_PASSWORD=password
 DB_NAME=locbalais
 
 # JWT
