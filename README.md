@@ -133,10 +133,10 @@ DB_HOST=db
 DB_PORT=3306
 DB_USER=root
 DB_PASSWORD=password
-DB_NAME=locbalais
+DB_NAME= balaidb
 
 # JWT
-SECRET_KEY= votre_cle_secrete
+SECRET_KEY= votre_cle_secrete_pour_chiffrer_le_jwt_token
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 ```
@@ -153,7 +153,7 @@ docker network create shared_network
 
 **Créer le container de base de donnée (si ce n'est pas déjà fait) :**
 
-Aller dans le dossier /balai fourni en .zip et effectuer  
+Aller dans le dossier ./balai fourni en .zip et effectuer  
 
 ```bash
 docker compose up --build 
@@ -162,7 +162,7 @@ docker compose up --build
 
 #### 3. Construire et lancer le conteneur
 
-rester dans /2526_INFOB212_GROUPE_11 et effectuer
+rester dans ./2526_INFOB212_GROUPE_11 et effectuer
 
 ```bash
  docker compose --env-file .env up --build --force-recreate 
@@ -185,9 +185,13 @@ L'application y sera disponible
 | Patron | albus.dumbledore | albus.dumbledore@magic.com | dumbledore123 |
 | Comptable | pomona.spout | pomona.spout@magic.com | spout456 |
 
-
-## Contributeurs
+## Contributeurs à la confection de la Base de Donnée
 
 - Peters Jan
 - Limauge Matteo
 - Vander Putten Benjamin
+
+## Contributeurs à la confection du site web
+
+- Vander Putten Benjamin
+

@@ -935,15 +935,15 @@ async def approve_commande_fournisseur(request: Request):
     approve_data = await request.json()
     commande_id = approve_data.get("commandeId")
     status = approve_data.get("status")
-    
+
     if status == "Approved":
         success = dao.approve_commande_fournisseur(request.state.identifiants,commande_id)
     else:
         success = dao.update_commande_fournisseur_status(request.state.identifiants,commande_id, status)
-    
+
     if not success:
         raise HTTPException(status_code=500, detail="Erreur lors de la mise à jour")
-    
+
     return JSONResponse({"success": True, "message": "Commande mise à jour"})
 
 
@@ -954,36 +954,36 @@ async def update_commande_fournisseur_status(request: Request):
     data = await request.json()
     commande_id = data.get("commandeId")
     new_status = data.get("status")
-    
+
     # Vérifier les autorisations de changement
     allowed_statuses = ['Pending', 'Processing', 'In transit', 'Finished', 'Cancelled']
     if new_status not in allowed_statuses:
         raise HTTPException(status_code=400, detail="Statut invalide")
-    
+
     # Récupérer le statut actuel
     current_cmd = dao.get_commande_fournisseur_by_id(request.state.identifiants, commande_id)
     if not current_cmd:
         raise HTTPException(status_code=404, detail="Commande non trouvée")
-    
+
     current_status = current_cmd['status']
-    
+
     # Vérifier la règle: "In transit" ne peut passer qu'à "Finished"
     if current_status == 'In transit' and new_status != 'Finished':
         raise HTTPException(status_code=400, detail="Une commande 'In transit' ne peut être marquée que comme 'Finished'")
-    
+
     # Vérifier que les statuts terminaux ne sont plus modifiables
     if current_status in ['Finished', 'Cancelled']:
         raise HTTPException(status_code=400, detail="Cette commande est déjà terminée ou annulée")
-    
+
     # Si le nouveau statut est "Finished", mettre à jour la date de livraison et les balais
     if new_status == 'Finished':
         success = dao.update_commande_fournisseur_delivery(request.state.identifiants, commande_id)
     else:
         success = dao.update_commande_fournisseur_status(request.state.identifiants, commande_id, new_status)
-    
+
     if not success:
         raise HTTPException(status_code=500, detail="Erreur lors de la mise à jour du statut")
-    
+
     return JSONResponse({"success": True, "message": f"Statut mis à jour: {new_status}"})
 
 # --- API Stats ---
