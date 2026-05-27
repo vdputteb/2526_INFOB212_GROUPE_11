@@ -1034,7 +1034,7 @@ class DAOMySQL:
             """, (actual_end_date, begin_date))
             rental_days = cursor.fetchone()[0]
 
-            if rental_days <= 0:
+            if rental_days < 0:
                 print("Durée de location invalide")
                 return False
 
@@ -1063,7 +1063,10 @@ class DAOMySQL:
             for broom in brooms:
                 daily_price = broom[0]
                 # Prix normal pour la durée totale
-                total_amount += daily_price * rental_days
+                if rental_days > 0:
+                    total_amount += daily_price * rental_days
+                else:
+                    total_amount +=daily_price
                 # Supplément de 50% pour les jours de retard
                 if late_days > 0:
                     total_amount += daily_price * late_days * 0.5
@@ -1122,21 +1125,6 @@ class DAOMySQL:
         conn = self._get_connection(identifiant)
         cursor = conn.cursor()
         try:
-            # Récupérer le balai associé
-            cursor.execute("""
-                SELECT b.id_balai
-                FROM location l
-                JOIN detail_location dl ON l.id_commande = dl.id_location
-                JOIN balai b ON dl.id_balai = b.id_balai
-                WHERE l.id_commande = %s
-            """, (location_id,))
-            result = cursor.fetchone()
-            
-            if result:
-                cursor.execute("UPDATE balai SET status = 'in stock' WHERE id_balai = %s", (result[0],))
-            
-            cursor.execute("DELETE FROM detail_location WHERE id_location = %s", (location_id,))
-            cursor.execute("DELETE FROM location WHERE id_commande = %s", (location_id,))
             cursor.execute("DELETE FROM commande WHERE id_commande = %s", (location_id,))
             
             conn.commit()
@@ -1483,11 +1471,11 @@ class DAOMySQL:
         conn = self._get_connection(identifiant)
         cursor = conn.cursor()
         try:
-            # Récupérer l'ID d'un patron
-            cursor.execute("SELECT id_employee FROM employee WHERE id_patron IS NULL LIMIT 1")
-            patron = cursor.fetchone()
-            patron_id = patron[0] if patron else None
-            
+            patron = None
+
+            if self.get_role(commande_data['vendeur_id']) == "patron" :
+                patron = identifiant[0]
+
             # Insérer la commande fournisseur
             cursor.execute("""
                 INSERT INTO commande_fournisseur 
@@ -1495,22 +1483,22 @@ class DAOMySQL:
                 VALUES (%s, %s, 'Pending Approuval', %s, %s)
             """, (
                 commande_data['vendeur_id'],
-                patron_id,
+                patron,
                 commande_data['command_date'],
                 commande_data['expected_delivery_date']
             ))
             commande_id = cursor.lastrowid
-            
+
             # Pour chaque balai commandé
             for item in commande_data['items']:
-                template_id = item['broom_template_id']
+                id_balai = item['broom_id']
                 quantity = item['quantity']
-                
+
                 cursor2 = conn.cursor(pymysql.cursors.DictCursor)
                 cursor2.execute("""
                     SELECT Libelle, description, img, sale_price, location_price, purchase_price, id_fabricant
                     FROM balai WHERE id_balai = %s
-                """, (template_id,))
+                """, (id_balai,))
                 source_broom = cursor2.fetchone()
                 cursor2.close()
                 
@@ -1538,16 +1526,16 @@ class DAOMySQL:
                         source_broom['id_fabricant']
                     ))
                     new_broom_id = cursor.lastrowid
-                    
+
                     # Copier les attributs magiques si nécessaire
                     cursor3 = conn.cursor(pymysql.cursors.DictCursor)
                     cursor3.execute("""
                         SELECT Flight_licence_required, speed, magic_component
                         FROM balai_magique WHERE id_balai = %s
-                    """, (template_id,))
+                    """, (id_balai,))
                     magic_broom = cursor3.fetchone()
                     cursor3.close()
-                    
+
                     if magic_broom:
                         cursor.execute("""
                             INSERT INTO balai_magique 
@@ -1559,7 +1547,7 @@ class DAOMySQL:
                             magic_broom['speed'],
                             magic_broom['magic_component']
                         ))
-            
+
             conn.commit()
             return True
         except Error as e:
@@ -1779,15 +1767,17 @@ class DAOMySQL:
         conn = self._get_connection(identifiant)
         cursor = conn.cursor()
         try:
+            patron_id = self.get_employee_by_login(identifiant,identifiant[0])["id_employee"]
+
             cursor.execute("""
                 UPDATE commande_fournisseur 
-                SET status = %s
+                SET status = %s , id_patron = %s
                 WHERE id_commande = %s
-            """, (status, commande_id))
+            """, (status, patron_id, commande_id,))
             conn.commit()
             return cursor.rowcount > 0
         except Error as e:
-            print(f"Erreur mise à jour statut: {e}")
+            print(f"Erreur mise à jour statut: {e} , {patron_id}")
             conn.rollback()
             return False
         finally:
